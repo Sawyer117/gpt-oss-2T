@@ -5,6 +5,7 @@
 | 文件 | 说明 |
 |---|---|
 | [研究笔记.md](研究笔记.md) | 持续维护的中文主文：结论、证据、候选族、争议和实验计划 |
+| [11 列完整宽表](研究笔记.md#full-11-column-table) | 直达主研究笔记文末的工业模型与全部候选横向对照 |
 | [X 线索快照](research/scaling01-2094471522228359604/README.md) | 原帖、原图、NVIDIA 原文和讨论整理 |
 | [模型基线](research/model-scaling/baselines.json) | 三个官方 Hugging Face 仓库的归一化架构参数 |
 | [候选定义](research/model-scaling/candidates.json) | GPT-OSS 形状的多轴缩放候选 |

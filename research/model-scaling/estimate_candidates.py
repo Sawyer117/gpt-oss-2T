@@ -20,6 +20,8 @@ BEGIN_MARKER = "<!-- BEGIN GENERATED MODEL COMPARISON -->"
 END_MARKER = "<!-- END GENERATED MODEL COMPARISON -->"
 BEGIN_AFFINITY_MARKER = "<!-- BEGIN GENERATED PARALLEL AFFINITY -->"
 END_AFFINITY_MARKER = "<!-- END GENERATED PARALLEL AFFINITY -->"
+BEGIN_WIDE_MARKER = "<!-- BEGIN GENERATED 11-COLUMN TABLE -->"
+END_WIDE_MARKER = "<!-- END GENERATED 11-COLUMN TABLE -->"
 
 
 def human_context(value: int) -> str:
@@ -63,9 +65,9 @@ def load_and_validate() -> tuple[dict, dict, list[tuple[dict, int, int]]]:
     return document, baselines, estimates
 
 
-def render_comparison_table(
+def comparison_rows(
     document: dict, baselines: dict, estimates: list[tuple[dict, int, int]]
-) -> str:
+) -> list[tuple[str, str, int, int, dict, str]]:
     models = baselines["models"]
     rows = [
         (
@@ -117,6 +119,13 @@ def render_comparison_table(
                 candidate["axis"],
             )
         )
+    return rows
+
+
+def render_comparison_table(
+    document: dict, baselines: dict, estimates: list[tuple[dict, int, int]]
+) -> str:
+    rows = comparison_rows(document, baselines, estimates)
 
     lines = [
         "> 公开模型使用上游仓库精确 metadata/模型卡；L/G/D/K 候选使用 GPT-OSS 形状参数账本。为避免宽表溢出，参数预算、架构形状与候选定位分表展示。",
@@ -162,6 +171,28 @@ def render_comparison_table(
     for _, name, _, _, model, purpose in rows:
         identifier = name.split(" / ", 1)[0]
         lines.append(f"| {identifier} | {purpose} |")
+    return "\n".join(lines)
+
+
+def render_wide_comparison_table(
+    document: dict, baselines: dict, estimates: list[tuple[dict, int, int]]
+) -> str:
+    rows = comparison_rows(document, baselines, estimates)
+    lines = [
+        "> 完整字段横向对照；窄屏设备可能需要横向滚动。数据与文首窄表由同一脚本生成。",
+        "",
+        "| 性质 | ID / 模型 | 总参数 | 激活/token | 激活/总量 | 层数 | Hidden | 专家 / Top-k | 上下文 | Attention | 主要轴 / 用途 |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---|---|",
+    ]
+    for kind, name, total, active, model, purpose in rows:
+        lines.append(
+            f"| {kind} | {name} | {human_parameters(total)} | "
+            f"{human_parameters(active)} | {100 * active / total:.3f}% | "
+            f"{model['num_hidden_layers']} | {model['hidden_size']:,} | "
+            f"{model['num_routed_experts']} / {model['experts_per_token']} | "
+            f"{human_context(model['context_length'])} | "
+            f"{short_attention(model['attention'])} | {purpose} |"
+        )
     return "\n".join(lines)
 
 
@@ -439,6 +470,10 @@ def render_document(
             "",
             "本表只估算 GPT-OSS 形状的 Transformer 与 MoE 张量；不覆盖 Kimi Stable LatentMoE、"
             "KDA/MLA 状态、DeepSeek HCA/CSA 索引、优化器状态、激活显存、KV cache、通信缓冲或模型质量。",
+            "",
+            "## 11 列完整宽表",
+            "",
+            render_wide_comparison_table(document, baselines, estimates),
         ]
     )
     return "\n".join(lines) + "\n"
@@ -453,11 +488,14 @@ def replace_generated_block(text: str, begin: str, end: str, body: str) -> str:
     return text[:start] + replacement + text[finish:]
 
 
-def update_note(path: Path, table: str, affinity: str) -> None:
+def update_note(path: Path, table: str, affinity: str, wide_table: str) -> None:
     text = path.read_text(encoding="utf-8")
     text = replace_generated_block(text, BEGIN_MARKER, END_MARKER, table)
     text = replace_generated_block(
         text, BEGIN_AFFINITY_MARKER, END_AFFINITY_MARKER, affinity
+    )
+    text = replace_generated_block(
+        text, BEGIN_WIDE_MARKER, END_WIDE_MARKER, wide_table
     )
     path.write_text(text, encoding="utf-8")
 
@@ -474,8 +512,9 @@ def main() -> None:
     document, baselines, estimates = load_and_validate()
     comparison = render_comparison_table(document, baselines, estimates)
     affinity = render_parallel_affinity_table(document, baselines, estimates)
+    wide_table = render_wide_comparison_table(document, baselines, estimates)
     if args.update_note:
-        update_note(args.update_note, comparison, affinity)
+        update_note(args.update_note, comparison, affinity, wide_table)
     print(render_document(document, baselines, estimates), end="")
 
 
