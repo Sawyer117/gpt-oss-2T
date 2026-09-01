@@ -119,20 +119,49 @@ def render_comparison_table(
         )
 
     lines = [
-        "> 公开模型使用上游仓库精确 metadata/模型卡；L/G/D/K 候选使用 GPT-OSS 形状参数账本。",
+        "> 公开模型使用上游仓库精确 metadata/模型卡；L/G/D/K 候选使用 GPT-OSS 形状参数账本。为避免宽表溢出，参数预算、架构形状与候选定位分表展示。",
         "",
-        "| 性质 | ID / 模型 | 总参数 | 激活/token | 激活/总量 | 层数 | Hidden | 专家 / Top-k | 上下文 | Attention | 主要轴 / 用途 |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---|---|",
+        "**参数预算**",
+        "",
+        "| 类别 | ID / 模型 | 总参数 | 激活/token | 激活比 |",
+        "|---|---|---:|---:|---:|",
     ]
     for kind, name, total, active, model, purpose in rows:
         lines.append(
             f"| {kind} | {name} | {human_parameters(total)} | "
-            f"{human_parameters(active)} | {100 * active / total:.3f}% | "
-            f"{model['num_hidden_layers']} | "
+            f"{human_parameters(active)} | {100 * active / total:.3f}% |"
+        )
+    lines.extend(
+        [
+            "",
+            "**架构形状**",
+            "",
+            "> `L` = 层数，`d` = hidden size，`E / k` = 路由专家数 / Top-k。",
+            "",
+            "| ID | L | d | E / k | 上下文 | Attention |",
+            "|---|---:|---:|---:|---:|---|",
+        ]
+    )
+    for _, name, _, _, model, _ in rows:
+        identifier = name.split(" / ", 1)[0]
+        lines.append(
+            f"| {identifier} | {model['num_hidden_layers']} | "
             f"{model['hidden_size']:,} | {model['num_routed_experts']} / "
             f"{model['experts_per_token']} | {human_context(model['context_length'])} | "
-            f"{short_attention(model['attention'])} | {purpose} |"
+            f"{short_attention(model['attention'])} |"
         )
+    lines.extend(
+        [
+            "",
+            "**模型与候选定位**",
+            "",
+            "| ID | 主要轴 / 用途 |",
+            "|---|---|",
+        ]
+    )
+    for _, name, _, _, model, purpose in rows:
+        identifier = name.split(" / ", 1)[0]
+        lines.append(f"| {identifier} | {purpose} |")
     return "\n".join(lines)
 
 
