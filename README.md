@@ -48,7 +48,7 @@ python3 research/model-scaling/parameter_accounting.py solve \
   --dimension-step 512 --expert-multiple 32
 ```
 
-把 TP/EP/PP 亲和性设为硬约束（例如 D2）而非手工筛选：
+把 TP/EP 整除与 PP **等层切分**设为可选硬约束（例如 D2）而非手工筛选；层数不整除仍可通过不等长 stage 使用 PP：
 
 ```bash
 python3 research/model-scaling/parameter_accounting.py solve \

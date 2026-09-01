@@ -330,7 +330,9 @@ def parse_args() -> argparse.Namespace:
         "--require-ep", type=int, help="require expert-count divisibility"
     )
     solve.add_argument(
-        "--require-pp", type=int, help="require layer-count divisibility"
+        "--require-pp",
+        type=int,
+        help="optionally require an exact equal-layer PP split; not required for PP",
     )
     solve.add_argument("--layer-step", type=int, default=1)
     solve.add_argument("--limit", type=int, default=10)

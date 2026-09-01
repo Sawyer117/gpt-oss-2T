@@ -136,16 +136,14 @@ def render_comparison_table(
     return "\n".join(lines)
 
 
-def parallel_degrees(model: dict) -> tuple[str, str, str, str, str]:
+def parallel_degrees(model: dict) -> tuple[str, str, str]:
     tp_options = (8, 16, 32)
     ep_options = (8, 16, 32, 64)
-    pp_options = (2, 4, 8, 16)
     hidden = model["hidden_size"]
     intermediate = model["expert_intermediate_size"]
     heads = model["num_attention_heads"]
     kv_heads = model["num_key_value_heads"]
     experts = model["num_routed_experts"]
-    layers = model["num_hidden_layers"]
 
     strict_tp = [
         value
@@ -163,21 +161,37 @@ def parallel_degrees(model: dict) -> tuple[str, str, str, str, str]:
         and heads % value == 0
     ]
     ep = [value for value in ep_options if experts % value == 0]
-    pp = [value for value in pp_options if layers % value == 0]
 
     def show(values: list[int]) -> str:
         return "/".join(str(value) for value in values) if values else "—"
 
-    limitation = (
-        f"最高严格整分：TP{max(strict_tp) if strict_tp else '—'} / "
-        f"EP{max(ep) if ep else '—'} / PP{max(pp) if pp else '—'}"
-    )
-    return show(strict_tp), show(replicated_kv_tp), show(ep), show(pp), limitation
+    return show(strict_tp), show(replicated_kv_tp), show(ep)
 
 
-def render_parallel_affinity_table(
+def pp_layer_balance(layers: int, stages: int) -> tuple[float, str]:
+    """Return the equal-cost-layer PP utilization proxy and best count split."""
+
+    if layers <= 0 or stages <= 0 or layers < stages:
+        raise ValueError("PP layer proxy requires layers >= stages > 0")
+    base, extra = divmod(layers, stages)
+    max_layers = base + bool(extra)
+    utilization = layers / (stages * max_layers)
+    if extra:
+        allocation = f"{extra}×{base + 1} + {stages - extra}×{base}"
+    else:
+        allocation = f"{stages}×{base}"
+    return utilization, allocation
+
+
+def render_pp_layer_balance(layers: int, stages: int) -> str:
+    utilization, allocation = pp_layer_balance(layers, stages)
+    suffix = "等层" if layers % stages == 0 else "不等层"
+    return f"{100 * utilization:.1f}%（{allocation}层，{suffix}）"
+
+
+def affinity_rows(
     document: dict, baselines: dict, estimates: list[tuple[dict, int, int]]
-) -> str:
+) -> list[tuple[str, str, dict]]:
     models = baselines["models"]
     rows = [
         ("O0", "GPT-OSS-120B", models["gpt-oss-120b"]),
@@ -194,34 +208,137 @@ def render_parallel_affinity_table(
             "num_routed_experts": candidate["num_routed_experts"],
             "num_attention_heads": candidate["num_attention_heads"],
             "num_key_value_heads": candidate["num_key_value_heads"],
+            "context_length": candidate.get(
+                "context_length", document["defaults"]["context_length"]
+            ),
+            "attention": "GPT-OSS alternating sliding/full",
         }
         rows.append((candidate["id"], candidate["name"], model))
+    return rows
 
+
+def training_tp_cell(identifier: str, strict_tp: str) -> str:
+    if identifier == "D0":
+        return "自定义 CSA/HCA；V3 实证 TP1"
+    if identifier == "K0":
+        return f"自定义 KDA/MLA；维度 {strict_tp}"
+    return strict_tp
+
+
+def training_evidence(identifier: str) -> str:
+    if identifier == "D0":
+        return "V3：TP1 / EP64 / PP16；V4 延用并调整 DualPipe"
+    if identifier in {"O0", "K0"}:
+        return "公开训练拓扑未完整披露；本行仅做配置算术筛选"
+    return "GPT-OSS 形状代理；尚无训练系统实测"
+
+
+def render_training_affinity_table(rows: list[tuple[str, str, dict]]) -> str:
     lines = [
-        "> 严格 TP 要求 hidden、expert intermediate、Q heads、KV heads 均可整分；“KV复制”列允许 KV heads 复制。PP 只检查层数均分，未计 embedding/LM head 与层类型负载差异。",
+        "> 训练维度把 TP/EP 的整除性视为一级门槛；PP 不要求层数整除，改用“所有层等成本”假设下的 stage 利用率代理。",
         "",
-        "| ID / 模型 | 严格 TP | TP（允许KV复制） | EP | PP | 严格整分上限 |",
-        "|---|---:|---:|---:|---:|---|",
+        "| ID / 模型 | 训练 TP（严格） | 训练 EP（均匀专家） | PP8 层计数代理 | PP16 层计数代理 | 实证 / 边界 |",
+        "|---|---|---:|---|---|---|",
     ]
     for identifier, name, model in rows:
-        strict_tp, relaxed_tp, ep, pp, limitation = parallel_degrees(model)
+        strict_tp, _, ep = parallel_degrees(model)
         lines.append(
-            f"| {identifier} / {name} | {strict_tp} | {relaxed_tp} | "
-            f"{ep} | {pp} | {limitation} |"
+            f"| {identifier} / {name} | {training_tp_cell(identifier, strict_tp)} | "
+            f"{ep} | {render_pp_layer_balance(model['num_hidden_layers'], 8)} | "
+            f"{render_pp_layer_balance(model['num_hidden_layers'], 16)} | "
+            f"{training_evidence(identifier)} |"
         )
     lines.extend(
         [
             "",
-            "- TP 候选集合：8/16/32；EP：8/16/32/64；PP：2/4/8/16。",
-            "- `—` 表示在上述候选集合中没有完全整分方案，不表示工程上绝对不能运行。",
-            "- TP（Tensor Parallel）看单个矩阵与 attention heads 能否切开；EP（Expert Parallel）看专家数能否均匀放置；PP（Pipeline Parallel）看层数能否均匀分 stage。",
-            "- 该表只是一级算术门槛；真实亲和性还受单机 GPU 数、NVLink/IB 拓扑、all-to-all、专家负载均衡和 kernel tile 约束影响。",
-            "- DeepSeek 的 CSA/HCA 与 Kimi 的 KDA/MLA 是自定义 attention；公开模型行的 TP 结果只是维度整除检查，仍需按真实 kernel 验证。",
-            "- PP 可使用不等长 stage，但表中只把完全均分视为严格亲和。",
-            "- DP（Data Parallel）通常不要求模型维度整除；CP/SP（Context/Sequence Parallel）对 400K 长上下文很重要，但取决于序列长度、attention pattern 与 kernel，不能只靠本表的模型维度判定。",
+            "- [DeepSeek-V3 Technical Report](https://arxiv.org/html/2412.19437)是直接反例：61 层实际采用 PP16、EP64、TP1；[DeepSeek 官方 DualPipe](https://github.com/deepseek-ai/DualPipe)要求 PP stage 数与 micro-batch 数为偶数，不要求层数整除。",
+            "- [DeepSeek-V4 Technical Report](https://arxiv.org/html/2606.19348v1)给出的 V4-Pro 也是 61 层；其训练框架继承 V3，并为 mHC 增加的 stage 间通信调整了 DualPipe 1F1B。",
+            "- PP 层计数代理为 `L / (P × ceil(L/P))`。它只回答同成本层的粗粒度均衡，不包含 embedding、head、MTP、不同 attention/MoE 层成本、激活显存或通信。",
+            "- TP 候选集合为 8/16/32，严格列不允许复制 KV heads；EP 候选集合为 8/16/32/64。DP/ZeRO 通常不受模型层数整除限制。",
         ]
     )
     return "\n".join(lines)
+
+
+def inference_attention_tp(identifier: str, strict_tp: str, relaxed_tp: str) -> str:
+    if identifier == "D0":
+        return "V3 实证 TP4+SP；V4 需 CSA/HCA 专用切分"
+    if identifier == "K0":
+        return f"维度 {strict_tp}；KDA/MLA 需专用 kernel"
+    return f"严格 {strict_tp}；KV复制 {relaxed_tp}"
+
+
+def context_parallel_cell(identifier: str, model: dict) -> str:
+    if identifier == "D0":
+        return "1M；CSA/HCA 专用 KV 与压缩边界"
+    if identifier == "K0":
+        return "1M；KDA/Gated MLA 需专用 kernel"
+    degrees = [
+        value for value in (8, 16, 32) if model["context_length"] % value == 0
+    ]
+    return f"{human_context(model['context_length'])}；CP/SP " + "/".join(
+        str(value) for value in degrees
+    )
+
+
+def inference_evidence(identifier: str) -> str:
+    if identifier == "D0":
+        return "V3 官方线上以 TP/SP+DP attention、EP MoE 为主，未采用训练 PP 拓扑"
+    if identifier == "K0":
+        return "配置整除不等于 KDA/LatentMoE 的实际可用拓扑"
+    if identifier == "O0":
+        return "静态算术筛选；仍需 serving kernel 与通信实测"
+    return "GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟"
+
+
+def inference_dp_cell(identifier: str) -> str:
+    if identifier == "D0":
+        return "V3：prefill DP8；decode DP80"
+    return "无静态形状约束；取决于 batch / SLO"
+
+
+def render_inference_affinity_table(rows: list[tuple[str, str, dict]]) -> str:
+    lines = [
+        "> 推理维度分开看 attention、MoE 与长上下文；允许 KV 复制和冗余专家时，静态整除条件会比训练更宽松。",
+        "",
+        "| ID / 模型 | Attention TP | MoE EP（均匀放置） | DP / 请求并行 | PP decode 层计数代理 | CP / SP 长上下文 | 实证 / 边界 |",
+        "|---|---|---:|---|---|---|---|",
+    ]
+    for identifier, name, model in rows:
+        strict_tp, relaxed_tp, ep = parallel_degrees(model)
+        pp8 = render_pp_layer_balance(model["num_hidden_layers"], 8)
+        pp16 = render_pp_layer_balance(model["num_hidden_layers"], 16)
+        lines.append(
+            f"| {identifier} / {name} | "
+            f"{inference_attention_tp(identifier, strict_tp, relaxed_tp)} | {ep} | "
+            f"{inference_dp_cell(identifier)} | "
+            f"PP8 {pp8}；PP16 {pp16} | {context_parallel_cell(identifier, model)} | "
+            f"{inference_evidence(identifier)} |"
+        )
+    lines.extend(
+        [
+            "",
+            "- [DeepSeek-V3 官方线上推理](https://arxiv.org/html/2412.19437)的 attention 使用 TP4+SP，并按 prefill/decode 分别组合 DP；MoE 使用大规模 EP。V4 推理框架大体继承 V3，但 CSA/HCA 改变了 KV 与 kernel 边界。",
+            "- 推理 PP 同样允许不等长 stage；是否值得使用取决于最慢 stage、micro-batch/concurrency、跨 stage 激活通信和逐 token 延迟，而不是层数取模。",
+            "- EP 列只表示无复制时专家可均匀放置。线上系统可以复制热点/共享专家，所以专家数整除也不是绝对可行性条件。",
+            "- CP/SP 对 400K/1M 上下文很重要；表中对 GPT-OSS 形状只检查序列长度整除，真实可用性仍取决于 Sliding/Full attention kernel。",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def render_parallel_affinity_table(
+    document: dict, baselines: dict, estimates: list[tuple[dict, int, int]]
+) -> str:
+    rows = affinity_rows(document, baselines, estimates)
+    return "\n\n".join(
+        [
+            "#### 训练维度：TP / EP / PP 亲和性\n\n"
+            + render_training_affinity_table(rows),
+            "#### 推理维度：并行亲和性\n\n"
+            + render_inference_affinity_table(rows),
+        ]
+    )
 
 
 def render_document(
@@ -243,7 +360,7 @@ def render_document(
         "",
         render_comparison_table(document, baselines, estimates),
         "",
-        "## TP / EP / PP 亲和性",
+        "## 训练与推理并行亲和性",
         "",
         render_parallel_affinity_table(document, baselines, estimates),
         "",

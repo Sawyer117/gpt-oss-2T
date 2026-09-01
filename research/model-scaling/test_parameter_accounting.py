@@ -12,9 +12,23 @@ from parameter_accounting import (
     count_parameters,
     search_shapes,
 )
+from estimate_candidates import pp_layer_balance
 
 
 class ParameterAccountingTests(unittest.TestCase):
+    def test_pp_layer_balance_does_not_require_divisible_layers(self) -> None:
+        utilization, allocation = pp_layer_balance(61, 16)
+        self.assertAlmostEqual(utilization, 61 / 64)
+        self.assertEqual(allocation, "13×4 + 3×3")
+
+        utilization, allocation = pp_layer_balance(51, 16)
+        self.assertAlmostEqual(utilization, 51 / 64)
+        self.assertEqual(allocation, "3×4 + 13×3")
+
+        utilization, allocation = pp_layer_balance(48, 16)
+        self.assertEqual(utilization, 1.0)
+        self.assertEqual(allocation, "16×3")
+
     def test_industrial_ratios_normalized_to_2t(self) -> None:
         cases = (
             (116_829_156_672, 5_100_000_000, 87_306_972_767),
