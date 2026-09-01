@@ -2,6 +2,8 @@
   "schema_version": 1,
   "estimator": "gpt_oss_shaped_v1",
   "target_total_parameters": 2000000000000,
+  "target_active_parameters": 74821978445,
+  "target_active_basis": "Kimi-K3 active/total ratio scaled from 2.779931837184T / 104B to 2T",
   "defaults": {
     "vocab_size": 201088,
     "head_dim": 64,
@@ -63,7 +65,7 @@
     },
     {
       "id": "O4",
-      "name": "平衡工业型 / DeepSeek 激活预算",
+      "name": "低激活平衡型",
       "axis": "深度 + 宽度 + 专家 + top-k",
       "num_hidden_layers": 64,
       "hidden_size": 6144,
@@ -72,33 +74,33 @@
       "experts_per_token": 6,
       "num_attention_heads": 128,
       "num_key_value_heads": 16,
-      "assessment": "总量接近 2T、激活预算接近 DeepSeek-V4-Pro；当前最值得优先建成本模型的 GPT-OSS 形状代理。"
+      "assessment": "总量接近 2T、激活 52.08B；低于 DeepSeek-V4-Pro 同比到 2T 的 61.29B 目标，用作低计算平衡对照。"
     },
     {
       "id": "O5",
-      "name": "Top-16 双目标拟合",
-      "axis": "固定 top-16，联合求解其余离散轴",
-      "num_hidden_layers": 54,
-      "hidden_size": 5632,
-      "expert_intermediate_size": 6656,
-      "num_routed_experts": 328,
+      "name": "Top-16 / Kimi 比例拟合",
+      "axis": "固定 top-16，拟合 2T / 74.82B",
+      "num_hidden_layers": 72,
+      "hidden_size": 6144,
+      "expert_intermediate_size": 3072,
+      "num_routed_experts": 488,
       "experts_per_token": 16,
       "num_attention_heads": 128,
       "num_key_value_heads": 16,
-      "assessment": "强制 top-16 后由离散求解器同时逼近 2T 总量与 Kimi 104B 激活预算；保留 EP8 与 8:1 GQA 对齐。"
+      "assessment": "保持 Kimi 的 top-16 特征，并拟合其 3.7411% 激活比例在 2T 下对应的 74.82B；保留 EP8 与 8:1 GQA 对齐。"
     },
     {
       "id": "O6",
-      "name": "自由 Top-N 双目标拟合",
-      "axis": "top-N 与层/宽/专家联合求解",
-      "num_hidden_layers": 61,
-      "hidden_size": 4096,
-      "expert_intermediate_size": 6400,
-      "num_routed_experts": 416,
-      "experts_per_token": 21,
-      "num_attention_heads": 64,
-      "num_key_value_heads": 8,
-      "assessment": "排除 top-16 后搜索 top-8 到 top-24；以 top-21 得到接近 2T / 104B 的另一组离散解，用于检验 top-N 与专家宽度的互换。"
+      "name": "自由 Top-N / Kimi 比例拟合",
+      "axis": "自由 top-N，拟合 2T / 74.82B",
+      "num_hidden_layers": 75,
+      "hidden_size": 6912,
+      "expert_intermediate_size": 4096,
+      "num_routed_experts": 312,
+      "experts_per_token": 10,
+      "num_attention_heads": 128,
+      "num_key_value_heads": 16,
+      "assessment": "排除 top-16 后搜索 top-8 到 top-24；top-10 是当前对 2T 总量与 Kimi 同比 74.82B 激活目标最接近的对齐解。"
     }
   ]
 }

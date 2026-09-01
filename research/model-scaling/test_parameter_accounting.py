@@ -5,10 +5,22 @@ from __future__ import annotations
 
 import unittest
 
-from parameter_accounting import GptOssShape, count_parameters, search_shapes
+from parameter_accounting import (
+    DEFAULT_TARGET_ACTIVE,
+    DEFAULT_TARGET_TOTAL,
+    GptOssShape,
+    count_parameters,
+    search_shapes,
+)
 
 
 class ParameterAccountingTests(unittest.TestCase):
+    def test_kimi_ratio_normalized_to_2t(self) -> None:
+        kimi_total = 2_779_931_837_184
+        kimi_active = 104_000_000_000
+        normalized = round(DEFAULT_TARGET_TOTAL * kimi_active / kimi_total)
+        self.assertEqual(normalized, DEFAULT_TARGET_ACTIVE)
+
     def test_gpt_oss_120b_schema_calibration(self) -> None:
         ledger = count_parameters(
             GptOssShape(
@@ -34,57 +46,57 @@ class ParameterAccountingTests(unittest.TestCase):
     def test_top16_candidate_exact_ledger(self) -> None:
         ledger = count_parameters(
             GptOssShape(
-                num_hidden_layers=54,
-                hidden_size=5632,
-                expert_intermediate_size=6656,
-                num_routed_experts=328,
+                num_hidden_layers=72,
+                hidden_size=6144,
+                expert_intermediate_size=3072,
+                num_routed_experts=488,
                 experts_per_token=16,
                 num_attention_heads=128,
                 num_key_value_heads=16,
             )
         )
-        self.assertEqual(ledger.total_parameters, 1_999_859_537_712)
-        self.assertEqual(ledger.active_parameters, 104_004_704_048)
+        self.assertEqual(ledger.total_parameters, 2_000_352_059_712)
+        self.assertEqual(ledger.active_parameters, 74_837_008_704)
 
     def test_free_topn_candidate_exact_ledger(self) -> None:
         ledger = count_parameters(
             GptOssShape(
-                num_hidden_layers=61,
-                hidden_size=4096,
-                expert_intermediate_size=6400,
-                num_routed_experts=416,
-                experts_per_token=21,
-                num_attention_heads=64,
-                num_key_value_heads=8,
+                num_hidden_layers=75,
+                hidden_size=6912,
+                expert_intermediate_size=4096,
+                num_routed_experts=312,
+                experts_per_token=10,
+                num_attention_heads=128,
+                num_key_value_heads=16,
             )
         )
-        self.assertEqual(ledger.total_parameters, 1_999_704_860_448)
-        self.assertEqual(ledger.active_parameters, 103_973_300_000)
+        self.assertEqual(ledger.total_parameters, 1_999_970_034_024)
+        self.assertEqual(ledger.active_parameters, 74_810_155_368)
 
     def test_solver_reproduces_published_candidates(self) -> None:
         fixed = search_shapes(
-            target_total=2_000_000_000_000,
-            target_active=104_000_000_000,
+            target_total=DEFAULT_TARGET_TOTAL,
+            target_active=DEFAULT_TARGET_ACTIVE,
             top_ks=[16],
             limit=1,
         )[0]
-        self.assertEqual(fixed.shape.num_hidden_layers, 54)
-        self.assertEqual(fixed.shape.hidden_size, 5632)
-        self.assertEqual(fixed.shape.expert_intermediate_size, 6656)
-        self.assertEqual(fixed.shape.num_routed_experts, 328)
+        self.assertEqual(fixed.shape.num_hidden_layers, 72)
+        self.assertEqual(fixed.shape.hidden_size, 6144)
+        self.assertEqual(fixed.shape.expert_intermediate_size, 3072)
+        self.assertEqual(fixed.shape.num_routed_experts, 488)
 
         free = search_shapes(
-            target_total=2_000_000_000_000,
-            target_active=104_000_000_000,
+            target_total=DEFAULT_TARGET_TOTAL,
+            target_active=DEFAULT_TARGET_ACTIVE,
             top_ks=range(8, 25),
             exclude_top_ks={16},
             limit=1,
         )[0]
-        self.assertEqual(free.shape.num_hidden_layers, 61)
-        self.assertEqual(free.shape.hidden_size, 4096)
-        self.assertEqual(free.shape.expert_intermediate_size, 6400)
-        self.assertEqual(free.shape.num_routed_experts, 416)
-        self.assertEqual(free.shape.experts_per_token, 21)
+        self.assertEqual(free.shape.num_hidden_layers, 75)
+        self.assertEqual(free.shape.hidden_size, 6912)
+        self.assertEqual(free.shape.expert_intermediate_size, 4096)
+        self.assertEqual(free.shape.num_routed_experts, 312)
+        self.assertEqual(free.shape.experts_per_token, 10)
 
 
 if __name__ == "__main__":

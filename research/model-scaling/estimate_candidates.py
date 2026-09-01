@@ -80,7 +80,7 @@ def render_comparison_table(
             models["deepseek-v4-pro"]["total_parameters"],
             models["deepseek-v4-pro"]["active_parameters"],
             models["deepseek-v4-pro"],
-            "49B 激活工业锚点",
+            "实际 49B；2T 同比目标 61.29B",
         ),
         (
             "公开模型",
@@ -88,7 +88,7 @@ def render_comparison_table(
             models["kimi-k3"]["total_parameters"],
             models["kimi-k3"]["active_parameters"],
             models["kimi-k3"],
-            "104B 激活工业锚点",
+            "实际 104B；2T 同比目标 74.82B",
         ),
     ]
 
@@ -119,13 +119,14 @@ def render_comparison_table(
     lines = [
         "> 公开模型使用上游仓库精确 metadata/模型卡；O1–O6 使用 GPT-OSS 形状参数账本。",
         "",
-        "| 性质 | ID / 模型 | 总参数 | 激活/token | 层数 | Hidden | 专家 / Top-k | 上下文 | Attention | 主要轴 / 用途 |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---|---|",
+        "| 性质 | ID / 模型 | 总参数 | 激活/token | 激活/总量 | 层数 | Hidden | 专家 / Top-k | 上下文 | Attention | 主要轴 / 用途 |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---|---|",
     ]
     for kind, name, total, active, model, purpose in rows:
         lines.append(
             f"| {kind} | {name} | {human_parameters(total)} | "
-            f"{human_parameters(active)} | {model['num_hidden_layers']} | "
+            f"{human_parameters(active)} | {100 * active / total:.3f}% | "
+            f"{model['num_hidden_layers']} | "
             f"{model['hidden_size']:,} | {model['num_routed_experts']} / "
             f"{model['experts_per_token']} | {human_context(model['context_length'])} | "
             f"{short_attention(model['attention'])} | {purpose} |"
@@ -137,6 +138,7 @@ def render_document(
     document: dict, baselines: dict, estimates: list[tuple[dict, int, int]]
 ) -> str:
     target = document["target_total_parameters"]
+    target_active = document["target_active_parameters"]
     baseline = baselines["models"]["gpt-oss-120b"]
     o0_total = estimates[0][1]
     o0_active = estimates[0][2]
@@ -154,15 +156,17 @@ def render_document(
         "",
         "## GPT-OSS 形状候选的估算误差",
         "",
-        "| ID | 候选 | 主缩放轴 | 总参数 | 每 token 激活 | 激活/总量 | 距 2T |",
-        "|---|---|---|---:|---:|---:|---:|",
+        "| ID | 候选 | 主缩放轴 | 总参数 | 每 token 激活 | 激活/总量 | 距 2T | 距 74.82B |",
+        "|---|---|---|---:|---:|---:|---:|---:|",
     ]
     for candidate, total, active in estimates:
         error = (total - target) / target
+        active_target_error = (active - target_active) / target_active
         lines.append(
             f"| {candidate['id']} | {candidate['name']} | {candidate['axis']} | "
             f"{human_parameters(total)} | {human_parameters(active)} | "
-            f"{100 * active / total:.3f}% | {100 * error:+.2f}% |"
+            f"{100 * active / total:.3f}% | {100 * error:+.2f}% | "
+            f"{100 * active_target_error:+.2f}% |"
         )
 
     lines.extend(

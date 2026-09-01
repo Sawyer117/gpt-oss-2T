@@ -1,5 +1,9 @@
 {
   "captured_at": "2026-09-01",
+  "normalized_2t_active_targets": {
+    "kimi-k3": 74821978445,
+    "deepseek-v4-pro": 61294450936
+  },
   "models": {
     "gpt-oss-120b": {
       "source": "https://huggingface.co/openai/gpt-oss-120b",

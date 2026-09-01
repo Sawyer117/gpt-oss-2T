@@ -9,6 +9,10 @@ from dataclasses import asdict, dataclass
 from typing import Iterable
 
 
+DEFAULT_TARGET_TOTAL = 2_000_000_000_000
+DEFAULT_TARGET_ACTIVE = 74_821_978_445
+
+
 @dataclass(frozen=True)
 class GptOssShape:
     num_hidden_layers: int
@@ -274,8 +278,8 @@ def parse_args() -> argparse.Namespace:
     count.add_argument("--json", action="store_true")
 
     solve = subparsers.add_parser("solve", help="search aligned near-2T shapes")
-    solve.add_argument("--target-total", type=int, default=2_000_000_000_000)
-    solve.add_argument("--target-active", type=int, default=104_000_000_000)
+    solve.add_argument("--target-total", type=int, default=DEFAULT_TARGET_TOTAL)
+    solve.add_argument("--target-active", type=int, default=DEFAULT_TARGET_ACTIVE)
     solve.add_argument("--fixed-top-k", type=int)
     solve.add_argument("--top-k-min", type=int, default=8)
     solve.add_argument("--top-k-max", type=int, default=24)
