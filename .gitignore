@@ -1,0 +1,12 @@
+# Local agent-browser runtime, profiles, and configuration
+/.browser-runtime/
+/.agent-browser/
+/agent-browser.json
+
+# Browser authentication material and copied requests
+*.auth-state.json
+*.curl
+
+# Browser captures can contain account or session details
+*.har
+*.webm
