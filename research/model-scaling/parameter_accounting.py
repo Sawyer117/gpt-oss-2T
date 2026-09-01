@@ -180,13 +180,19 @@ def search_shapes(
     intermediate_values: Iterable[int] = range(2048, 8193, 256),
     min_experts: int = 192,
     max_experts: int = 768,
+    expert_multiple: int = 8,
+    required_tp: int | None = None,
+    required_ep: int | None = None,
+    required_pp: int | None = None,
     limit: int = 10,
 ) -> list[SearchResult]:
     """Search aligned industrial shapes without brute-forcing expert counts.
 
     Layer, hidden, and intermediate sizes use fixed aligned grids. The ideal
-    expert count is solved analytically and snapped to EP8. For each resulting
-    shape, all totals are then recomputed from the tensor ledger.
+    expert count is solved analytically and snapped to ``expert_multiple``.
+    Optional TP/EP/PP requirements turn hardware topology into a hard filter
+    rather than a subjective tie-break. For each remaining shape, all totals
+    are recomputed from the tensor ledger.
     """
 
     excluded = exclude_top_ks or set()
@@ -194,9 +200,19 @@ def search_shapes(
     top_k_values = [value for value in top_ks if value not in excluded]
 
     for layers in layer_values:
+        if required_pp is not None and layers % required_pp:
+            continue
         for hidden in hidden_values:
             heads, kv_heads = gpt_oss_like_heads(hidden)
+            if required_tp is not None and (
+                hidden % required_tp
+                or heads % required_tp
+                or kv_heads % required_tp
+            ):
+                continue
             for intermediate in intermediate_values:
+                if required_tp is not None and intermediate % required_tp:
+                    continue
                 probe = GptOssShape(
                     num_hidden_layers=layers,
                     hidden_size=hidden,
@@ -210,10 +226,16 @@ def search_shapes(
                 per_expert = layers * (3 * hidden * intermediate + hidden + 1)
                 base_without_expert = probe_ledger.total_parameters - per_expert
                 ideal_experts = (target_total - base_without_expert) / per_expert
-                snapped = nearest_multiple(ideal_experts, 8)
+                snapped = nearest_multiple(ideal_experts, expert_multiple)
 
-                for experts in (snapped - 8, snapped, snapped + 8):
+                for experts in (
+                    snapped - expert_multiple,
+                    snapped,
+                    snapped + expert_multiple,
+                ):
                     if not min_experts <= experts <= max_experts:
+                        continue
+                    if required_ep is not None and experts % required_ep:
                         continue
                     for top_k in top_k_values:
                         if not 1 <= top_k <= experts:
@@ -298,6 +320,19 @@ def parse_args() -> argparse.Namespace:
     solve.add_argument("--dimension-step", type=int, default=256)
     solve.add_argument("--min-experts", type=int, default=192)
     solve.add_argument("--max-experts", type=int, default=768)
+    solve.add_argument("--expert-multiple", type=int, default=8)
+    solve.add_argument(
+        "--require-tp",
+        type=int,
+        help="require hidden/intermediate/Q-head/KV-head divisibility",
+    )
+    solve.add_argument(
+        "--require-ep", type=int, help="require expert-count divisibility"
+    )
+    solve.add_argument(
+        "--require-pp", type=int, help="require layer-count divisibility"
+    )
+    solve.add_argument("--layer-step", type=int, default=1)
     solve.add_argument("--limit", type=int, default=10)
 
     return parser.parse_args()
@@ -335,7 +370,7 @@ def main() -> None:
         target_active=args.target_active,
         top_ks=top_ks,
         exclude_top_ks=set(args.exclude_top_k),
-        layer_values=range(args.layer_min, args.layer_max + 1),
+        layer_values=range(args.layer_min, args.layer_max + 1, args.layer_step),
         hidden_values=range(
             args.hidden_min, args.hidden_max + 1, args.dimension_step
         ),
@@ -346,6 +381,10 @@ def main() -> None:
         ),
         min_experts=args.min_experts,
         max_experts=args.max_experts,
+        expert_multiple=args.expert_multiple,
+        required_tp=args.require_tp,
+        required_ep=args.require_ep,
+        required_pp=args.require_pp,
         limit=args.limit,
     )
     print(json.dumps([result.as_dict() for result in results], indent=2))

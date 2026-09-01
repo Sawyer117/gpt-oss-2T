@@ -31,9 +31,9 @@
     },
     {
       "id": "L1",
-      "name": "低激活平衡边界",
-      "axis": "平衡形状下压低 top-k",
-      "target_family": "低计算边界",
+      "name": "DSV4 Top-6 / 64层硬件基线",
+      "axis": "固定 64 层、6144 宽、top-6",
+      "target_family": "DSV4 路由语义基线",
       "target_active_parameters": null,
       "num_hidden_layers": 64,
       "hidden_size": 6144,
@@ -42,7 +42,7 @@
       "experts_per_token": 6,
       "num_attention_heads": 128,
       "num_key_value_heads": 16,
-      "assessment": "总量约 1.98T、激活约 52B；低于 DeepSeek 同比目标，用于研究偏低 active compute 的 LPX decode 边界。"
+      "assessment": "与 DSV4 对齐 top-6 激活专家数，且 64 层、6144 宽、EP16/PP16 友好；不声称保持 DSV4 的激活比例。"
     },
     {
       "id": "G1",
@@ -60,19 +60,34 @@
       "assessment": "保持 GPT-OSS 的 128 专家与 top-4，通过宽度和适度增深达到约 2T，并维持官方 4.365% 激活比例。"
     },
     {
+      "id": "G2",
+      "name": "GPT-OSS 比例 / 并行拓扑优先",
+      "axis": "TP32 + EP64 + PP16 严格整除",
+      "target_family": "GPT-OSS-120B 同比",
+      "target_active_parameters": 87306972767,
+      "num_hidden_layers": 48,
+      "hidden_size": 12288,
+      "expert_intermediate_size": 8704,
+      "num_routed_experts": 128,
+      "experts_per_token": 4,
+      "num_attention_heads": 256,
+      "num_key_value_heads": 32,
+      "assessment": "保留 128 专家与 top-4；牺牲约 1.6% 激活目标精度，换取 TP32、EP64、PP16 的严格整除。"
+    },
+    {
       "id": "D1",
       "name": "DeepSeek 比例 / Top-6",
       "axis": "固定 top-6，拟合 2T / 61.29B",
       "target_family": "DeepSeek-V4-Pro 同比",
       "target_active_parameters": 61294450936,
-      "num_hidden_layers": 79,
-      "hidden_size": 5888,
-      "expert_intermediate_size": 6144,
-      "num_routed_experts": 232,
+      "num_hidden_layers": 56,
+      "hidden_size": 8192,
+      "expert_intermediate_size": 5632,
+      "num_routed_experts": 256,
       "experts_per_token": 6,
-      "num_attention_heads": 128,
-      "num_key_value_heads": 16,
-      "assessment": "保留 DeepSeek 的 top-6 激活特征，同时拟合其 3.0647% 激活比例在 2T 下对应的 61.29B。"
+      "num_attention_heads": 192,
+      "num_key_value_heads": 24,
+      "assessment": "保留 top-6，采用 8192 hidden、256 专家与 4 层对齐网格；激活目标误差约 -0.55%，换取更强 TP/EP/PP 亲和性。"
     },
     {
       "id": "D2",
@@ -80,14 +95,14 @@
       "axis": "自由 top-N，拟合 2T / 61.29B",
       "target_family": "DeepSeek-V4-Pro 同比",
       "target_active_parameters": 61294450936,
-      "num_hidden_layers": 94,
-      "hidden_size": 4352,
-      "expert_intermediate_size": 6144,
-      "num_routed_experts": 264,
-      "experts_per_token": 7,
+      "num_hidden_layers": 88,
+      "hidden_size": 5120,
+      "expert_intermediate_size": 7680,
+      "num_routed_experts": 192,
+      "experts_per_token": 5,
       "num_attention_heads": 128,
       "num_key_value_heads": 16,
-      "assessment": "排除 top-6 后的最优对齐解为 top-7，用于分离路由基数与每专家宽度的影响。"
+      "assessment": "严格 512 维度、32 专家、4 层网格上的自由解为 top-5；TP16、EP64、PP8 严格整除。"
     },
     {
       "id": "K1",
@@ -95,14 +110,14 @@
       "axis": "固定 top-16，拟合 2T / 74.82B",
       "target_family": "Kimi-K3 同比",
       "target_active_parameters": 74821978445,
-      "num_hidden_layers": 72,
-      "hidden_size": 6144,
-      "expert_intermediate_size": 3072,
-      "num_routed_experts": 488,
+      "num_hidden_layers": 84,
+      "hidden_size": 4608,
+      "expert_intermediate_size": 3584,
+      "num_routed_experts": 480,
       "experts_per_token": 16,
       "num_attention_heads": 128,
       "num_key_value_heads": 16,
-      "assessment": "保持 Kimi 的 top-16 特征，并拟合其 3.7411% 激活比例在 2T 下对应的 74.82B。"
+      "assessment": "保持 top-16，在严格 512 维度与 32 专家网格上拟合 Kimi 比例；TP16、EP32、PP4 亲和。"
     },
     {
       "id": "K2",
@@ -110,14 +125,14 @@
       "axis": "自由 top-N，拟合 2T / 74.82B",
       "target_family": "Kimi-K3 同比",
       "target_active_parameters": 74821978445,
-      "num_hidden_layers": 75,
-      "hidden_size": 6912,
-      "expert_intermediate_size": 4096,
-      "num_routed_experts": 312,
-      "experts_per_token": 10,
+      "num_hidden_layers": 52,
+      "hidden_size": 6656,
+      "expert_intermediate_size": 4608,
+      "num_routed_experts": 416,
+      "experts_per_token": 14,
       "num_attention_heads": 128,
       "num_key_value_heads": 16,
-      "assessment": "排除 top-16 后的最优对齐解为 top-10，用于比较更少、更宽的激活专家。"
+      "assessment": "严格亲和网格上的自由解为 top-14；TP16、EP32、PP4 亲和，并保持 Kimi 激活比例。"
     }
   ]
 }

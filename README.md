@@ -40,8 +40,22 @@ python3 research/model-scaling/parameter_accounting.py count \
 重新求解固定 top-16 和自由 top-N 候选：
 
 ```bash
-python3 research/model-scaling/parameter_accounting.py solve --fixed-top-k 16
-python3 research/model-scaling/parameter_accounting.py solve --exclude-top-k 16
+python3 research/model-scaling/parameter_accounting.py solve \
+  --fixed-top-k 16 --layer-step 4 \
+  --dimension-step 512 --expert-multiple 32
+python3 research/model-scaling/parameter_accounting.py solve \
+  --exclude-top-k 16 --layer-step 4 \
+  --dimension-step 512 --expert-multiple 32
+```
+
+把 TP/EP/PP 亲和性设为硬约束（例如 D2）而非手工筛选：
+
+```bash
+python3 research/model-scaling/parameter_accounting.py solve \
+  --target-active 61294450936 --top-k-min 4 --top-k-max 16 \
+  --exclude-top-k 6 --layer-step 4 \
+  --dimension-step 512 --expert-multiple 32 \
+  --require-tp 16 --require-ep 64 --require-pp 8
 ```
 
 GPT 原生 top-4 候选使用更宽、较少专家的搜索边界：
