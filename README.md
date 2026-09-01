@@ -18,3 +18,11 @@
 - 同栈比较优先；跨模型参数量不直接等价于质量或吞吐。
 - 生成文件不手改，改 JSON 或脚本后重新生成。
 - 浏览器会话、Cookie、HAR、cURL 和认证状态不得进入 Git。
+
+更新候选参数后，用同一条命令刷新独立生成表和主研究笔记中的总览区块：
+
+```bash
+python3 research/model-scaling/estimate_candidates.py \
+  --update-note 研究笔记.md \
+  > research/model-scaling/candidates.generated.md
+```

@@ -19,6 +19,7 @@
       "experts_per_token": 4,
       "num_attention_heads": 64,
       "num_key_value_heads": 8,
+      "context_length": 131072,
       "assessment": "估算器校准点，应复现 117B 总参数与约 5.1B 激活参数。"
     },
     {
