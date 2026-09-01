@@ -12,56 +12,12 @@ import argparse
 import json
 from pathlib import Path
 
+from parameter_accounting import count_parameters, human_parameters, shape_from_mapping
+
 
 ROOT = Path(__file__).resolve().parent
 BEGIN_MARKER = "<!-- BEGIN GENERATED MODEL COMPARISON -->"
 END_MARKER = "<!-- END GENERATED MODEL COMPARISON -->"
-
-
-def estimate(candidate: dict, defaults: dict) -> tuple[int, int]:
-    layers = candidate["num_hidden_layers"]
-    hidden = candidate["hidden_size"]
-    intermediate = candidate["expert_intermediate_size"]
-    experts = candidate["num_routed_experts"]
-    top_k = candidate["experts_per_token"]
-    heads = candidate["num_attention_heads"]
-    kv_heads = candidate["num_key_value_heads"]
-    vocab = candidate.get("vocab_size", defaults["vocab_size"])
-    head_dim = candidate.get("head_dim", defaults["head_dim"])
-
-    q_dim = heads * head_dim
-    kv_dim = kv_heads * head_dim
-
-    # Q/K/V/O projections plus the public GPT-OSS attention biases.
-    attention = (
-        hidden * (q_dim + kv_dim + kv_dim)
-        + q_dim * hidden
-        + q_dim
-        + kv_dim
-        + kv_dim
-        + hidden
-    )
-
-    # SwiGLU gate/up/down weights for every routed expert.
-    all_experts = experts * 3 * hidden * intermediate
-    active_experts = top_k * 3 * hidden * intermediate
-    router = hidden * experts + experts
-    norms = 2 * hidden
-
-    # Both embeddings and the untied LM head are stored. The active count
-    # includes the full LM head but not the entire input embedding matrix.
-    stored_fixed = 2 * vocab * hidden + hidden
-    active_fixed = vocab * hidden + hidden
-
-    total = stored_fixed + layers * (attention + all_experts + router + norms)
-    active = active_fixed + layers * (attention + active_experts + router + norms)
-    return total, active
-
-
-def human_parameters(value: int) -> str:
-    if value >= 1_000_000_000_000:
-        return f"{value / 1_000_000_000_000:.3f}T"
-    return f"{value / 1_000_000_000:.2f}B"
 
 
 def human_context(value: int) -> str:
@@ -88,7 +44,11 @@ def load_and_validate() -> tuple[dict, dict, list[tuple[dict, int, int]]]:
             raise ValueError(f"invalid top-k for {candidate['id']}")
         if candidate["num_attention_heads"] <= 0 or candidate["num_key_value_heads"] <= 0:
             raise ValueError(f"invalid attention heads for {candidate['id']}")
-        estimates.append((candidate, *estimate(candidate, document["defaults"])))
+        shape = shape_from_mapping(candidate, document["defaults"])
+        ledger = count_parameters(shape)
+        estimates.append(
+            (candidate, ledger.total_parameters, ledger.active_parameters)
+        )
 
     baseline = baselines["models"]["gpt-oss-120b"]
     o0_total = estimates[0][1]
@@ -157,7 +117,7 @@ def render_comparison_table(
         )
 
     lines = [
-        "> 公开模型使用上游仓库精确 metadata/模型卡；O1–O5 使用 GPT-OSS 形状估算器。",
+        "> 公开模型使用上游仓库精确 metadata/模型卡；O1–O6 使用 GPT-OSS 形状参数账本。",
         "",
         "| 性质 | ID / 模型 | 总参数 | 激活/token | 层数 | Hidden | 专家 / Top-k | 上下文 | Attention | 主要轴 / 用途 |",
         "|---|---|---:|---:|---:|---:|---:|---:|---|---|",
