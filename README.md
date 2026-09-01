@@ -44,6 +44,16 @@ python3 research/model-scaling/parameter_accounting.py solve --fixed-top-k 16
 python3 research/model-scaling/parameter_accounting.py solve --exclude-top-k 16
 ```
 
+GPT 原生 top-4 候选使用更宽、较少专家的搜索边界：
+
+```bash
+python3 research/model-scaling/parameter_accounting.py solve \
+  --target-active 87306972767 --fixed-top-k 4 \
+  --layer-min 36 --layer-max 64 \
+  --hidden-max 12288 --intermediate-max 12288 \
+  --min-experts 64
+```
+
 运行参数账本与求解器回归测试：
 
 ```bash

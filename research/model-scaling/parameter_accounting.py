@@ -175,6 +175,11 @@ def search_shapes(
     target_active: int,
     top_ks: Iterable[int],
     exclude_top_ks: set[int] | None = None,
+    layer_values: Iterable[int] = range(48, 97),
+    hidden_values: Iterable[int] = range(4096, 8193, 256),
+    intermediate_values: Iterable[int] = range(2048, 8193, 256),
+    min_experts: int = 192,
+    max_experts: int = 768,
     limit: int = 10,
 ) -> list[SearchResult]:
     """Search aligned industrial shapes without brute-forcing expert counts.
@@ -188,10 +193,10 @@ def search_shapes(
     results: list[SearchResult] = []
     top_k_values = [value for value in top_ks if value not in excluded]
 
-    for layers in range(48, 97):
-        for hidden in range(4096, 8193, 256):
+    for layers in layer_values:
+        for hidden in hidden_values:
             heads, kv_heads = gpt_oss_like_heads(hidden)
-            for intermediate in range(2048, 8193, 256):
+            for intermediate in intermediate_values:
                 probe = GptOssShape(
                     num_hidden_layers=layers,
                     hidden_size=hidden,
@@ -208,7 +213,7 @@ def search_shapes(
                 snapped = nearest_multiple(ideal_experts, 8)
 
                 for experts in (snapped - 8, snapped, snapped + 8):
-                    if not 192 <= experts <= 768:
+                    if not min_experts <= experts <= max_experts:
                         continue
                     for top_k in top_k_values:
                         if not 1 <= top_k <= experts:
@@ -284,6 +289,15 @@ def parse_args() -> argparse.Namespace:
     solve.add_argument("--top-k-min", type=int, default=8)
     solve.add_argument("--top-k-max", type=int, default=24)
     solve.add_argument("--exclude-top-k", type=int, action="append", default=[])
+    solve.add_argument("--layer-min", type=int, default=48)
+    solve.add_argument("--layer-max", type=int, default=96)
+    solve.add_argument("--hidden-min", type=int, default=4096)
+    solve.add_argument("--hidden-max", type=int, default=8192)
+    solve.add_argument("--intermediate-min", type=int, default=2048)
+    solve.add_argument("--intermediate-max", type=int, default=8192)
+    solve.add_argument("--dimension-step", type=int, default=256)
+    solve.add_argument("--min-experts", type=int, default=192)
+    solve.add_argument("--max-experts", type=int, default=768)
     solve.add_argument("--limit", type=int, default=10)
 
     return parser.parse_args()
@@ -321,6 +335,17 @@ def main() -> None:
         target_active=args.target_active,
         top_ks=top_ks,
         exclude_top_ks=set(args.exclude_top_k),
+        layer_values=range(args.layer_min, args.layer_max + 1),
+        hidden_values=range(
+            args.hidden_min, args.hidden_max + 1, args.dimension_step
+        ),
+        intermediate_values=range(
+            args.intermediate_min,
+            args.intermediate_max + 1,
+            args.dimension_step,
+        ),
+        min_experts=args.min_experts,
+        max_experts=args.max_experts,
         limit=args.limit,
     )
     print(json.dumps([result.as_dict() for result in results], indent=2))

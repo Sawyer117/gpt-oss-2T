@@ -1,9 +1,12 @@
 {
-  "schema_version": 1,
-  "estimator": "gpt_oss_shaped_v1",
+  "schema_version": 2,
+  "estimator": "gpt_oss_shaped_v2",
   "target_total_parameters": 2000000000000,
-  "target_active_parameters": 74821978445,
-  "target_active_basis": "Kimi-K3 active/total ratio scaled from 2.779931837184T / 104B to 2T",
+  "active_targets": {
+    "gpt-oss-120b-ratio": 87306972767,
+    "deepseek-v4-pro-ratio": 61294450936,
+    "kimi-k3-ratio": 74821978445
+  },
   "defaults": {
     "vocab_size": 201088,
     "head_dim": 64,
@@ -14,6 +17,8 @@
       "id": "O0",
       "name": "GPT-OSS-120B 基线",
       "axis": "校准基线",
+      "target_family": "公开基线",
+      "target_active_parameters": 5100000000,
       "num_hidden_layers": 36,
       "hidden_size": 2880,
       "expert_intermediate_size": 2880,
@@ -25,48 +30,11 @@
       "assessment": "估算器校准点，应复现 117B 总参数与约 5.1B 激活参数。"
     },
     {
-      "id": "O1",
-      "name": "专家数单轴",
-      "axis": "专家 128 -> 2304",
-      "num_hidden_layers": 36,
-      "hidden_size": 2880,
-      "expert_intermediate_size": 2880,
-      "num_routed_experts": 2304,
-      "experts_per_token": 4,
-      "num_attention_heads": 64,
-      "num_key_value_heads": 8,
-      "assessment": "激活计算便宜，但路由极端稀疏，专家并行的元数据与通信压力巨大；主要用作负对照。"
-    },
-    {
-      "id": "O2",
-      "name": "深度单轴",
-      "axis": "层数 36 -> 622",
-      "num_hidden_layers": 622,
-      "hidden_size": 2880,
-      "expert_intermediate_size": 2880,
-      "num_routed_experts": 128,
-      "experts_per_token": 4,
-      "num_attention_heads": 64,
-      "num_key_value_heads": 8,
-      "assessment": "能以中等激活参数达到 2T，但顺序关键路径和层间同步都不现实。"
-    },
-    {
-      "id": "O3",
-      "name": "宽度主轴 + 小幅增深",
-      "axis": "宽度 4x，层数 36 -> 39",
-      "num_hidden_layers": 39,
-      "hidden_size": 11520,
-      "expert_intermediate_size": 11520,
-      "num_routed_experts": 128,
-      "experts_per_token": 4,
-      "num_attention_heads": 256,
-      "num_key_value_heads": 32,
-      "assessment": "大矩阵更适合张量并行，但激活参数约 80B、单 token 计算重；用于隔离宽度轴而不引入病态深度。"
-    },
-    {
-      "id": "O4",
-      "name": "低激活平衡型",
-      "axis": "深度 + 宽度 + 专家 + top-k",
+      "id": "L1",
+      "name": "低激活平衡边界",
+      "axis": "平衡形状下压低 top-k",
+      "target_family": "低计算边界",
+      "target_active_parameters": null,
       "num_hidden_layers": 64,
       "hidden_size": 6144,
       "expert_intermediate_size": 6144,
@@ -74,12 +42,59 @@
       "experts_per_token": 6,
       "num_attention_heads": 128,
       "num_key_value_heads": 16,
-      "assessment": "总量接近 2T、激活 52.08B；低于 DeepSeek-V4-Pro 同比到 2T 的 61.29B 目标，用作低计算平衡对照。"
+      "assessment": "总量约 1.98T、激活约 52B；低于 DeepSeek 同比目标，用于研究偏低 active compute 的 LPX decode 边界。"
     },
     {
-      "id": "O5",
-      "name": "Top-16 / Kimi 比例拟合",
+      "id": "G1",
+      "name": "GPT-OSS 比例 / 原生 Top-4",
+      "axis": "保持 GPT 激活比例与 top-4，主扩宽",
+      "target_family": "GPT-OSS-120B 同比",
+      "target_active_parameters": 87306972767,
+      "num_hidden_layers": 51,
+      "hidden_size": 12288,
+      "expert_intermediate_size": 8192,
+      "num_routed_experts": 128,
+      "experts_per_token": 4,
+      "num_attention_heads": 256,
+      "num_key_value_heads": 32,
+      "assessment": "保持 GPT-OSS 的 128 专家与 top-4，通过宽度和适度增深达到约 2T，并维持官方 4.365% 激活比例。"
+    },
+    {
+      "id": "D1",
+      "name": "DeepSeek 比例 / Top-6",
+      "axis": "固定 top-6，拟合 2T / 61.29B",
+      "target_family": "DeepSeek-V4-Pro 同比",
+      "target_active_parameters": 61294450936,
+      "num_hidden_layers": 79,
+      "hidden_size": 5888,
+      "expert_intermediate_size": 6144,
+      "num_routed_experts": 232,
+      "experts_per_token": 6,
+      "num_attention_heads": 128,
+      "num_key_value_heads": 16,
+      "assessment": "保留 DeepSeek 的 top-6 激活特征，同时拟合其 3.0647% 激活比例在 2T 下对应的 61.29B。"
+    },
+    {
+      "id": "D2",
+      "name": "DeepSeek 比例 / 自由 Top-N",
+      "axis": "自由 top-N，拟合 2T / 61.29B",
+      "target_family": "DeepSeek-V4-Pro 同比",
+      "target_active_parameters": 61294450936,
+      "num_hidden_layers": 94,
+      "hidden_size": 4352,
+      "expert_intermediate_size": 6144,
+      "num_routed_experts": 264,
+      "experts_per_token": 7,
+      "num_attention_heads": 128,
+      "num_key_value_heads": 16,
+      "assessment": "排除 top-6 后的最优对齐解为 top-7，用于分离路由基数与每专家宽度的影响。"
+    },
+    {
+      "id": "K1",
+      "name": "Kimi 比例 / Top-16",
       "axis": "固定 top-16，拟合 2T / 74.82B",
+      "target_family": "Kimi-K3 同比",
+      "target_active_parameters": 74821978445,
       "num_hidden_layers": 72,
       "hidden_size": 6144,
       "expert_intermediate_size": 3072,
@@ -87,12 +102,14 @@
       "experts_per_token": 16,
       "num_attention_heads": 128,
       "num_key_value_heads": 16,
-      "assessment": "保持 Kimi 的 top-16 特征，并拟合其 3.7411% 激活比例在 2T 下对应的 74.82B；保留 EP8 与 8:1 GQA 对齐。"
+      "assessment": "保持 Kimi 的 top-16 特征，并拟合其 3.7411% 激活比例在 2T 下对应的 74.82B。"
     },
     {
-      "id": "O6",
-      "name": "自由 Top-N / Kimi 比例拟合",
+      "id": "K2",
+      "name": "Kimi 比例 / 自由 Top-N",
       "axis": "自由 top-N，拟合 2T / 74.82B",
+      "target_family": "Kimi-K3 同比",
+      "target_active_parameters": 74821978445,
       "num_hidden_layers": 75,
       "hidden_size": 6912,
       "expert_intermediate_size": 4096,
@@ -100,7 +117,7 @@
       "experts_per_token": 10,
       "num_attention_heads": 128,
       "num_key_value_heads": 16,
-      "assessment": "排除 top-16 后搜索 top-8 到 top-24；top-10 是当前对 2T 总量与 Kimi 同比 74.82B 激活目标最接近的对齐解。"
+      "assessment": "排除 top-16 后的最优对齐解为 top-10，用于比较更少、更宽的激活专家。"
     }
   ]
 }

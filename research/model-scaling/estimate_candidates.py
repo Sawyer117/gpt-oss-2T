@@ -117,7 +117,7 @@ def render_comparison_table(
         )
 
     lines = [
-        "> 公开模型使用上游仓库精确 metadata/模型卡；O1–O6 使用 GPT-OSS 形状参数账本。",
+        "> 公开模型使用上游仓库精确 metadata/模型卡；L/G/D/K 候选使用 GPT-OSS 形状参数账本。",
         "",
         "| 性质 | ID / 模型 | 总参数 | 激活/token | 激活/总量 | 层数 | Hidden | 专家 / Top-k | 上下文 | Attention | 主要轴 / 用途 |",
         "|---|---|---:|---:|---:|---:|---:|---:|---:|---|---|",
@@ -138,7 +138,6 @@ def render_document(
     document: dict, baselines: dict, estimates: list[tuple[dict, int, int]]
 ) -> str:
     target = document["target_total_parameters"]
-    target_active = document["target_active_parameters"]
     baseline = baselines["models"]["gpt-oss-120b"]
     o0_total = estimates[0][1]
     o0_active = estimates[0][2]
@@ -156,17 +155,25 @@ def render_document(
         "",
         "## GPT-OSS 形状候选的估算误差",
         "",
-        "| ID | 候选 | 主缩放轴 | 总参数 | 每 token 激活 | 激活/总量 | 距 2T | 距 74.82B |",
-        "|---|---|---|---:|---:|---:|---:|---:|",
+        "| ID | 候选 | 目标族 | 总参数 | 每 token 激活 | 激活/总量 | 距 2T | 目标激活 | 距目标 |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|",
     ]
     for candidate, total, active in estimates:
         error = (total - target) / target
-        active_target_error = (active - target_active) / target_active
+        active_target = candidate.get("target_active_parameters")
+        active_target_text = (
+            human_parameters(active_target) if active_target is not None else "—"
+        )
+        active_target_error_text = (
+            f"{100 * (active - active_target) / active_target:+.2f}%"
+            if active_target is not None
+            else "—"
+        )
         lines.append(
-            f"| {candidate['id']} | {candidate['name']} | {candidate['axis']} | "
+            f"| {candidate['id']} | {candidate['name']} | {candidate['target_family']} | "
             f"{human_parameters(total)} | {human_parameters(active)} | "
             f"{100 * active / total:.3f}% | {100 * error:+.2f}% | "
-            f"{100 * active_target_error:+.2f}% |"
+            f"{active_target_text} | {active_target_error_text} |"
         )
 
     lines.extend(
