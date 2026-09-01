@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "estimator": "gpt_oss_shaped_v1",
+  "target_total_parameters": 2000000000000,
+  "defaults": {
+    "vocab_size": 201088,
+    "head_dim": 64,
+    "context_length": 400000
+  },
+  "candidates": [
+    {
+      "id": "O0",
+      "name": "GPT-OSS-120B 基线",
+      "axis": "校准基线",
+      "num_hidden_layers": 36,
+      "hidden_size": 2880,
+      "expert_intermediate_size": 2880,
+      "num_routed_experts": 128,
+      "experts_per_token": 4,
+      "num_attention_heads": 64,
+      "num_key_value_heads": 8,
+      "assessment": "估算器校准点，应复现 117B 总参数与约 5.1B 激活参数。"
+    },
+    {
+      "id": "O1",
+      "name": "专家数单轴",
+      "axis": "专家 128 -> 2304",
+      "num_hidden_layers": 36,
+      "hidden_size": 2880,
+      "expert_intermediate_size": 2880,
+      "num_routed_experts": 2304,
+      "experts_per_token": 4,
+      "num_attention_heads": 64,
+      "num_key_value_heads": 8,
+      "assessment": "激活计算便宜，但路由极端稀疏，专家并行的元数据与通信压力巨大；主要用作负对照。"
+    },
+    {
+      "id": "O2",
+      "name": "深度单轴",
+      "axis": "层数 36 -> 622",
+      "num_hidden_layers": 622,
+      "hidden_size": 2880,
+      "expert_intermediate_size": 2880,
+      "num_routed_experts": 128,
+      "experts_per_token": 4,
+      "num_attention_heads": 64,
+      "num_key_value_heads": 8,
+      "assessment": "能以中等激活参数达到 2T，但顺序关键路径和层间同步都不现实。"
+    },
+    {
+      "id": "O3",
+      "name": "宽度主轴 + 小幅增深",
+      "axis": "宽度 4x，层数 36 -> 39",
+      "num_hidden_layers": 39,
+      "hidden_size": 11520,
+      "expert_intermediate_size": 11520,
+      "num_routed_experts": 128,
+      "experts_per_token": 4,
+      "num_attention_heads": 256,
+      "num_key_value_heads": 32,
+      "assessment": "大矩阵更适合张量并行，但激活参数约 80B、单 token 计算重；用于隔离宽度轴而不引入病态深度。"
+    },
+    {
+      "id": "O4",
+      "name": "平衡工业型 / DeepSeek 激活预算",
+      "axis": "深度 + 宽度 + 专家 + top-k",
+      "num_hidden_layers": 64,
+      "hidden_size": 6144,
+      "expert_intermediate_size": 6144,
+      "num_routed_experts": 272,
+      "experts_per_token": 6,
+      "num_attention_heads": 128,
+      "num_key_value_heads": 16,
+      "assessment": "总量接近 2T、激活预算接近 DeepSeek-V4-Pro；当前最值得优先建成本模型的 GPT-OSS 形状代理。"
+    },
+    {
+      "id": "O5",
+      "name": "平衡工业型 / Kimi 激活预算",
+      "axis": "与 O4 同权重，top-k 6 -> 16",
+      "num_hidden_layers": 64,
+      "hidden_size": 6144,
+      "expert_intermediate_size": 6144,
+      "num_routed_experts": 272,
+      "experts_per_token": 16,
+      "num_attention_heads": 128,
+      "num_key_value_heads": 16,
+      "assessment": "与 O4 存储完全相同，但使用 Kimi 级激活计算；用于把路由/激活轴与总参数量分离。"
+    }
+  ]
+}

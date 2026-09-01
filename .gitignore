@@ -10,3 +10,10 @@
 # Browser captures can contain account or session details
 *.har
 *.webm
+
+# Local Python artifacts from research scripts
+__pycache__/
+*.py[cod]
+
+# Downloaded third-party page caches; keep distilled notes and source links
+research/**/raw/

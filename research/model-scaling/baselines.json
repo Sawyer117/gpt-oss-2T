@@ -1,0 +1,58 @@
+{
+  "captured_at": "2026-09-01",
+  "models": {
+    "gpt-oss-120b": {
+      "source": "https://huggingface.co/openai/gpt-oss-120b",
+      "revision": "b5c939de8f754692c1647ca79fbf85e8c1e70f8a",
+      "total_parameters": 116829156672,
+      "active_parameters": 5100000000,
+      "num_hidden_layers": 36,
+      "hidden_size": 2880,
+      "expert_intermediate_size": 2880,
+      "num_routed_experts": 128,
+      "experts_per_token": 4,
+      "num_shared_experts": 0,
+      "num_attention_heads": 64,
+      "num_key_value_heads": 8,
+      "head_dim": 64,
+      "vocab_size": 201088,
+      "context_length": 131072,
+      "attention": "18 sliding-window + 18 full-attention layers",
+      "precision": "MXFP4 MoE weights; attention/router/embeddings/lm_head excluded from MXFP4"
+    },
+    "kimi-k3": {
+      "source": "https://huggingface.co/moonshotai/Kimi-K3",
+      "revision": "a590ce090cb049c93a33dfe8c208ec652aa20503",
+      "total_parameters": 2779931837184,
+      "active_parameters": 104000000000,
+      "num_hidden_layers": 93,
+      "num_dense_layers": 1,
+      "hidden_size": 7168,
+      "expert_intermediate_size": 3072,
+      "num_routed_experts": 896,
+      "experts_per_token": 16,
+      "num_shared_experts": 2,
+      "num_attention_heads": 96,
+      "context_length": 1048576,
+      "attention": "69 KDA + 24 Gated MLA layers",
+      "precision": "MXFP4 weights / MXFP8 activations; native multimodal"
+    },
+    "deepseek-v4-pro": {
+      "source": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro",
+      "revision": "b5968e9190ef611bbf34a7229255be88a0e937c1",
+      "total_parameters": 1598839674782,
+      "active_parameters": 49000000000,
+      "num_hidden_layers": 61,
+      "hidden_size": 7168,
+      "expert_intermediate_size": 3072,
+      "num_routed_experts": 384,
+      "experts_per_token": 6,
+      "num_shared_experts": 1,
+      "num_attention_heads": 128,
+      "num_key_value_heads": 1,
+      "context_length": 1048576,
+      "attention": "hybrid Compressed Sparse Attention + Heavily Compressed Attention",
+      "precision": "FP4 MoE experts + FP8 mixed precision; one next-token-prediction layer"
+    }
+  }
+}
