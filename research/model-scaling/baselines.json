@@ -1,11 +1,31 @@
 {
-  "captured_at": "2026-09-01",
+  "captured_at": "2026-09-02",
   "normalized_2t_active_targets": {
+    "gpt-oss-20b": 344254534569,
     "gpt-oss-120b": 87306972767,
     "kimi-k3": 74821978445,
     "deepseek-v4-pro": 61294450936
   },
   "models": {
+    "gpt-oss-20b": {
+      "source": "https://huggingface.co/openai/gpt-oss-20b",
+      "revision": "6cee5e81ee83917806bbde320786a8fb61efebee",
+      "total_parameters": 20914757184,
+      "active_parameters": 3600000000,
+      "num_hidden_layers": 24,
+      "hidden_size": 2880,
+      "expert_intermediate_size": 2880,
+      "num_routed_experts": 32,
+      "experts_per_token": 4,
+      "num_shared_experts": 0,
+      "num_attention_heads": 64,
+      "num_key_value_heads": 8,
+      "head_dim": 64,
+      "vocab_size": 201088,
+      "context_length": 131072,
+      "attention": "12 sliding-window + 12 full-attention layers",
+      "precision": "MXFP4 MoE weights; attention/router/embeddings/lm_head excluded from MXFP4"
+    },
     "gpt-oss-120b": {
       "source": "https://huggingface.co/openai/gpt-oss-120b",
       "revision": "b5c939de8f754692c1647ca79fbf85e8c1e70f8a",

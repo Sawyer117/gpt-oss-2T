@@ -10,12 +10,26 @@ from parameter_accounting import (
     DEFAULT_TARGET_TOTAL,
     GptOssShape,
     count_parameters,
+    gpt_oss_family_linear_projection,
     search_shapes,
 )
 from estimate_candidates import pp_layer_balance
 
 
 class ParameterAccountingTests(unittest.TestCase):
+    def test_gpt_oss_family_linear_projection(self) -> None:
+        step, shape = gpt_oss_family_linear_projection()
+        self.assertAlmostEqual(step, 7.2186721086)
+        self.assertEqual(shape.num_hidden_layers, 110)
+        self.assertEqual(shape.hidden_size, 2880)
+        self.assertEqual(shape.expert_intermediate_size, 2880)
+        self.assertEqual(shape.num_routed_experts, 728)
+        self.assertEqual(shape.experts_per_token, 4)
+
+        ledger = count_parameters(shape)
+        self.assertEqual(ledger.total_parameters, 1_996_956_778_640)
+        self.assertEqual(ledger.active_parameters, 14_679_597_200)
+
     def test_scaled_shape_defaults_to_figure_11_context(self) -> None:
         shape = GptOssShape(
             num_hidden_layers=48,
@@ -43,6 +57,7 @@ class ParameterAccountingTests(unittest.TestCase):
 
     def test_industrial_ratios_normalized_to_2t(self) -> None:
         cases = (
+            (20_914_757_184, 3_600_000_000, 344_254_534_569),
             (116_829_156_672, 5_100_000_000, 87_306_972_767),
             (1_598_839_674_782, 49_000_000_000, 61_294_450_936),
             (2_779_931_837_184, 104_000_000_000, DEFAULT_TARGET_ACTIVE),
@@ -69,6 +84,28 @@ class ParameterAccountingTests(unittest.TestCase):
         self.assertEqual(ledger.total_parameters, 116_789_341_248)
         self.assertEqual(ledger.active_parameters, 5_131_603_008)
         official_checkpoint_elements = 116_829_156_672
+        self.assertLess(
+            abs(ledger.total_parameters - official_checkpoint_elements)
+            / official_checkpoint_elements,
+            0.001,
+        )
+
+    def test_gpt_oss_20b_schema_calibration(self) -> None:
+        ledger = count_parameters(
+            GptOssShape(
+                num_hidden_layers=24,
+                hidden_size=2880,
+                expert_intermediate_size=2880,
+                num_routed_experts=32,
+                experts_per_token=4,
+                num_attention_heads=64,
+                num_key_value_heads=8,
+                context_length=131072,
+            )
+        )
+        self.assertEqual(ledger.total_parameters, 20_908_120_128)
+        self.assertEqual(ledger.active_parameters, 3_607_476_288)
+        official_checkpoint_elements = 20_914_757_184
         self.assertLess(
             abs(ledger.total_parameters - official_checkpoint_elements)
             / official_checkpoint_elements,

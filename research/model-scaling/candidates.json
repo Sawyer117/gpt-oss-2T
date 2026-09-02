@@ -75,6 +75,21 @@
       "assessment": "保留 128 专家与 top-4；牺牲约 1.6% 激活目标精度，换取 TP32、EP64、PP16 的严格整除。"
     },
     {
+      "id": "F1",
+      "name": "GPT-OSS 族谱 / 20B→120B 线性外推",
+      "axis": "沿 Δ层数=12、Δ专家=96 的配置直线外推",
+      "target_family": "GPT-OSS 20B→120B 族谱",
+      "target_active_parameters": null,
+      "num_hidden_layers": 110,
+      "hidden_size": 2880,
+      "expert_intermediate_size": 2880,
+      "num_routed_experts": 728,
+      "experts_per_token": 4,
+      "num_attention_heads": 64,
+      "num_key_value_heads": 8,
+      "assessment": "保持 GPT-OSS family 已观测的不变轴，并沿 20B→120B 的层数/专家数直线求解 2T；得到约 14.68B 激活，仅作为原生族谱外推锚点，EP 只能严格整分到 8。"
+    },
+    {
       "id": "D1",
       "name": "DeepSeek 比例 / Top-6",
       "axis": "固定 top-6，拟合 2T / 61.29B",

@@ -7,11 +7,11 @@
 | [研究笔记.md](研究笔记.md) | 持续维护的中文主文：结论、证据、候选族、争议和实验计划 |
 | [11 列完整宽表](研究笔记.md#full-11-column-table) | 直达主研究笔记文末的工业模型与全部候选横向对照 |
 | [X 线索快照](research/scaling01-2094471522228359604/README.md) | 原帖、原图、NVIDIA 原文和讨论整理 |
-| [模型基线](research/model-scaling/baselines.json) | 三个官方 Hugging Face 仓库的归一化架构参数 |
+| [模型基线](research/model-scaling/baselines.json) | 四个官方 Hugging Face 仓库的归一化架构参数 |
 | [候选定义](research/model-scaling/candidates.json) | GPT-OSS 形状的多轴缩放候选 |
 | [候选发布器](research/model-scaling/estimate_candidates.py) | 从逐张量账本生成候选表并同步主研究笔记 |
 | [逐张量参数账本](research/model-scaling/parameter_accounting.py) | 整数级 tensor-schema 计数、breakdown 与离散候选搜索 |
-| [参数账本测试](research/model-scaling/test_parameter_accounting.py) | 锁定基线、top-16、自由 top-N 与求解器结果 |
+| [参数账本测试](research/model-scaling/test_parameter_accounting.py) | 锁定基线、GPT-OSS family 线性外推、top-16、自由 top-N 与求解器结果 |
 | [生成候选表](research/model-scaling/candidates.generated.md) | 由估算器生成，不手工编辑 |
 
 ## 维护约定
@@ -36,6 +36,13 @@ python3 research/model-scaling/estimate_candidates.py \
 python3 research/model-scaling/parameter_accounting.py count \
   --layers 54 --hidden 5632 --intermediate 6656 \
   --experts 328 --top-k 16 --heads 128 --kv-heads 16
+```
+
+复现 GPT-OSS family 从 20B 到 120B 的配置直线，并外推到 2T：
+
+```bash
+python3 research/model-scaling/parameter_accounting.py family-project \
+  --target-total 2000000000000
 ```
 
 重新求解固定 top-16 和自由 top-N 候选：

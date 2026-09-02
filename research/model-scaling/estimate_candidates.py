@@ -74,6 +74,14 @@ def comparison_rows(
     rows = [
         (
             "公开模型",
+            "O20 / GPT-OSS-20B",
+            models["gpt-oss-20b"]["total_parameters"],
+            models["gpt-oss-20b"]["active_parameters"],
+            models["gpt-oss-20b"],
+            "GPT-OSS family 小模型锚点",
+        ),
+        (
+            "公开模型",
             "O0 / GPT-OSS-120B",
             models["gpt-oss-120b"]["total_parameters"],
             models["gpt-oss-120b"]["active_parameters"],
@@ -130,7 +138,7 @@ def render_comparison_table(
     rows = comparison_rows(document, baselines, estimates)
 
     lines = [
-        "> 公开模型使用上游仓库精确 metadata/模型卡；L/G/D/K 候选使用 GPT-OSS 形状参数账本。为避免宽表溢出，参数预算、架构形状与候选定位分表展示。",
+        "> 公开模型使用上游仓库精确 metadata/模型卡；F/L/G/D/K 候选使用 GPT-OSS 形状参数账本。为避免宽表溢出，参数预算、架构形状与候选定位分表展示。",
         "",
         "**参数预算**",
         "",
@@ -256,6 +264,7 @@ def affinity_rows(
 ) -> list[tuple[str, str, dict]]:
     models = baselines["models"]
     rows = [
+        ("O20", "GPT-OSS-20B", models["gpt-oss-20b"]),
         ("O0", "GPT-OSS-120B", models["gpt-oss-120b"]),
         ("D0", "DeepSeek-V4-Pro", models["deepseek-v4-pro"]),
         ("K0", "Kimi-K3", models["kimi-k3"]),
@@ -290,7 +299,7 @@ def training_tp_cell(identifier: str, strict_tp: str) -> str:
 def training_evidence(identifier: str) -> str:
     if identifier == "D0":
         return "V3：TP1 / EP64 / PP16；V4 延用并调整 DualPipe"
-    if identifier in {"O0", "K0"}:
+    if identifier in {"O20", "O0", "K0"}:
         return "公开训练拓扑未完整披露；本行仅做配置算术筛选"
     return "GPT-OSS 形状代理；尚无训练系统实测"
 
@@ -335,7 +344,7 @@ def inference_evidence(identifier: str) -> str:
         return "V3 官方线上以 TP/SP+DP attention、EP MoE 为主，未采用训练 PP 拓扑"
     if identifier == "K0":
         return "配置整除不等于 KDA/LatentMoE 的实际可用拓扑"
-    if identifier == "O0":
+    if identifier in {"O20", "O0"}:
         return "静态算术筛选；仍需 serving kernel 与通信实测"
     return "GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟"
 

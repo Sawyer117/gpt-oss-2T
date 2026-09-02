@@ -169,6 +169,75 @@ def gpt_oss_like_heads(hidden_size: int) -> tuple[int, int]:
     return heads, heads // 8
 
 
+def gpt_oss_family_linear_projection(
+    target_total: int = DEFAULT_TARGET_TOTAL,
+    *,
+    context_length: int = 400000,
+) -> tuple[float, GptOssShape]:
+    """Continue the observed 20B -> 120B architecture delta to a target total.
+
+    The straight line is defined in architecture coordinates, with ``t=0`` at
+    gpt-oss-20b and ``t=1`` at gpt-oss-120b::
+
+        layers(t)  = 24 + 12t
+        experts(t) = 32 + 96t
+
+    Width, expert width, top-k, and attention dimensions are unchanged across
+    the two released family members. The tensor ledger is nonlinear along this
+    line because routed-expert storage contains a layers-times-experts term.
+    We therefore solve ``t`` against the exact continuous ledger, then snap to
+    an even layer count and an EP8 expert count.
+    """
+
+    if target_total <= 0:
+        raise ValueError("target_total must be positive")
+
+    hidden = 2880
+    intermediate = 2880
+    q_dim = 64 * 64
+    kv_dim = 8 * 64
+    vocab = 201088
+
+    def continuous_total(step: float) -> float:
+        layers = 24 + 12 * step
+        experts = 32 + 96 * step
+        attention_weights = hidden * (q_dim + 2 * kv_dim) + q_dim * hidden
+        attention_biases = q_dim + 2 * kv_dim + hidden
+        per_layer = (
+            attention_weights
+            + attention_biases
+            + 2 * hidden
+            + hidden * experts
+            + experts
+            + experts * 3 * hidden * intermediate
+        )
+        return 2 * vocab * hidden + hidden + layers * per_layer
+
+    low = -min(24 / 12, 32 / 96) + 1e-9
+    high = 1.0
+    while continuous_total(high) < target_total:
+        high *= 2
+    for _ in range(80):
+        step = (low + high) / 2
+        if continuous_total(step) < target_total:
+            low = step
+        else:
+            high = step
+    step = (low + high) / 2
+
+    shape = GptOssShape(
+        num_hidden_layers=nearest_multiple(24 + 12 * step, 2),
+        hidden_size=hidden,
+        expert_intermediate_size=intermediate,
+        num_routed_experts=nearest_multiple(32 + 96 * step, 8),
+        experts_per_token=4,
+        num_attention_heads=64,
+        num_key_value_heads=8,
+        context_length=context_length,
+    )
+    return step, shape
+
+
 def search_shapes(
     *,
     target_total: int,
@@ -337,6 +406,12 @@ def parse_args() -> argparse.Namespace:
     solve.add_argument("--layer-step", type=int, default=1)
     solve.add_argument("--limit", type=int, default=10)
 
+    family = subparsers.add_parser(
+        "family-project", help="project the observed GPT-OSS 20B -> 120B line"
+    )
+    family.add_argument("--target-total", type=int, default=DEFAULT_TARGET_TOTAL)
+    family.add_argument("--context-length", type=int, default=400000)
+
     return parser.parse_args()
 
 
@@ -360,6 +435,27 @@ def main() -> None:
             print(json.dumps({"shape": asdict(shape), **ledger.as_dict()}, indent=2))
         else:
             print(format_ledger(shape, ledger))
+        return
+
+    if args.command == "family-project":
+        step, shape = gpt_oss_family_linear_projection(
+            args.target_total, context_length=args.context_length
+        )
+        ledger = count_parameters(shape)
+        print(
+            json.dumps(
+                {
+                    "line": {
+                        "layers": "24 + 12t",
+                        "experts": "32 + 96t",
+                        "t": step,
+                    },
+                    "shape": asdict(shape),
+                    **ledger.as_dict(),
+                },
+                indent=2,
+            )
+        )
         return
 
     top_ks = (
