@@ -330,19 +330,6 @@ def inference_attention_tp(identifier: str, strict_tp: str, relaxed_tp: str) -> 
     return f"严格 {strict_tp}；KV复制 {relaxed_tp}"
 
 
-def context_parallel_cell(identifier: str, model: dict) -> str:
-    if identifier == "D0":
-        return "1M；CSA/HCA 专用 KV 与压缩边界"
-    if identifier == "K0":
-        return "1M；KDA/Gated MLA 需专用 kernel"
-    degrees = [
-        value for value in (8, 16, 32) if model["context_length"] % value == 0
-    ]
-    return f"{human_context(model['context_length'])}；CP/SP " + "/".join(
-        str(value) for value in degrees
-    )
-
-
 def inference_evidence(identifier: str) -> str:
     if identifier == "D0":
         return "V3 官方线上以 TP/SP+DP attention、EP MoE 为主，未采用训练 PP 拓扑"
@@ -361,10 +348,10 @@ def inference_dp_cell(identifier: str) -> str:
 
 def render_inference_affinity_table(rows: list[tuple[str, str, dict]]) -> str:
     lines = [
-        "> 推理维度分开看 attention、MoE 与长上下文；允许 KV 复制和冗余专家时，静态整除条件会比训练更宽松。",
+        "> 推理维度分开看 attention、MoE、请求并行与 pipeline；允许 KV 复制和冗余专家时，静态整除条件会比训练更宽松。",
         "",
-        "| ID / 模型 | Attention TP | MoE EP（均匀放置） | DP / 请求并行 | PP decode 层计数代理 | CP / SP 长上下文 | 实证 / 边界 |",
-        "|---|---|---:|---|---|---|---|",
+        "| ID / 模型 | Attention TP | MoE EP（均匀放置） | DP / 请求并行 | PP decode 层计数代理 | 实证 / 边界 |",
+        "|---|---|---:|---|---|---|",
     ]
     for identifier, name, model in rows:
         strict_tp, relaxed_tp, ep = parallel_degrees(model)
@@ -374,8 +361,7 @@ def render_inference_affinity_table(rows: list[tuple[str, str, dict]]) -> str:
             f"| {identifier} / {name} | "
             f"{inference_attention_tp(identifier, strict_tp, relaxed_tp)} | {ep} | "
             f"{inference_dp_cell(identifier)} | "
-            f"PP8 {pp8}；PP16 {pp16} | {context_parallel_cell(identifier, model)} | "
-            f"{inference_evidence(identifier)} |"
+            f"PP8 {pp8}；PP16 {pp16} | {inference_evidence(identifier)} |"
         )
     lines.extend(
         [
@@ -383,7 +369,7 @@ def render_inference_affinity_table(rows: list[tuple[str, str, dict]]) -> str:
             "- [DeepSeek-V3 官方线上推理](https://arxiv.org/html/2412.19437)的 attention 使用 TP4+SP，并按 prefill/decode 分别组合 DP；MoE 使用大规模 EP。V4 推理框架大体继承 V3，但 CSA/HCA 改变了 KV 与 kernel 边界。",
             "- 推理 PP 同样允许不等长 stage；是否值得使用取决于最慢 stage、micro-batch/concurrency、跨 stage 激活通信和逐 token 延迟，而不是层数取模。",
             "- EP 列只表示无复制时专家可均匀放置。线上系统可以复制热点/共享专家，所以专家数整除也不是绝对可行性条件。",
-            "- 所有 L/G/D/K 候选把 1,048,576 token 作为能力设计目标；CP/SP 列只检查序列长度整除，真实支持仍取决于位置编码训练与 Sliding/Full attention kernel。",
+            "- 上下文长度现阶段仅作为候选配置字段记录，不纳入本表的并行亲和性判断。",
         ]
     )
     return "\n".join(lines)

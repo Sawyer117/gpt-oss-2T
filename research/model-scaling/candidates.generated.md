@@ -79,25 +79,25 @@
 
 #### 推理维度：并行亲和性
 
-> 推理维度分开看 attention、MoE 与长上下文；允许 KV 复制和冗余专家时，静态整除条件会比训练更宽松。
+> 推理维度分开看 attention、MoE、请求并行与 pipeline；允许 KV 复制和冗余专家时，静态整除条件会比训练更宽松。
 
-| ID / 模型 | Attention TP | MoE EP（均匀放置） | DP / 请求并行 | PP decode 层计数代理 | CP / SP 长上下文 | 实证 / 边界 |
-|---|---|---:|---|---|---|---|
-| O0 / GPT-OSS-120B | 严格 8；KV复制 8/16/32 | 8/16/32/64 | 无静态形状约束；取决于 batch / SLO | PP8 90.0%（4×5 + 4×4层，不等层）；PP16 75.0%（4×3 + 12×2层，不等层） | 131K；CP/SP 8/16/32 | 静态算术筛选；仍需 serving kernel 与通信实测 |
-| D0 / DeepSeek-V4-Pro | V3 实证 TP4+SP；V4 需 CSA/HCA 专用切分 | 8/16/32/64 | V3：prefill DP8；decode DP80 | PP8 95.3%（5×8 + 3×7层，不等层）；PP16 95.3%（13×4 + 3×3层，不等层） | 1M；CSA/HCA 专用 KV 与压缩边界 | V3 官方线上以 TP/SP+DP attention、EP MoE 为主，未采用训练 PP 拓扑 |
-| K0 / Kimi-K3 | 维度 8/16/32；KDA/MLA 需专用 kernel | 8/16/32/64 | 无静态形状约束；取决于 batch / SLO | PP8 96.9%（5×12 + 3×11层，不等层）；PP16 96.9%（13×6 + 3×5层，不等层） | 1M；KDA/Gated MLA 需专用 kernel | 配置整除不等于 KDA/LatentMoE 的实际可用拓扑 |
-| L1 / DSV4 Top-6 / 64层硬件基线 | 严格 8/16；KV复制 8/16/32 | 8/16 | 无静态形状约束；取决于 batch / SLO | PP8 100.0%（8×8层，等层）；PP16 100.0%（16×4层，等层） | 1M；CP/SP 8/16/32 | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
-| G1 / GPT-OSS 比例 / 原生 Top-4 | 严格 8/16/32；KV复制 8/16/32 | 8/16/32/64 | 无静态形状约束；取决于 batch / SLO | PP8 91.1%（3×7 + 5×6层，不等层）；PP16 79.7%（3×4 + 13×3层，不等层） | 1M；CP/SP 8/16/32 | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
-| G2 / GPT-OSS 比例 / 并行拓扑优先 | 严格 8/16/32；KV复制 8/16/32 | 8/16/32/64 | 无静态形状约束；取决于 batch / SLO | PP8 100.0%（8×6层，等层）；PP16 100.0%（16×3层，等层） | 1M；CP/SP 8/16/32 | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
-| D1 / DeepSeek 比例 / Top-6 | 严格 8；KV复制 8/16/32 | 8/16/32/64 | 无静态形状约束；取决于 batch / SLO | PP8 100.0%（8×7层，等层）；PP16 87.5%（8×4 + 8×3层，不等层） | 1M；CP/SP 8/16/32 | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
-| D2 / DeepSeek 比例 / 自由 Top-N | 严格 8/16；KV复制 8/16/32 | 8/16/32/64 | 无静态形状约束；取决于 batch / SLO | PP8 100.0%（8×11层，等层）；PP16 91.7%（8×6 + 8×5层，不等层） | 1M；CP/SP 8/16/32 | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
-| K1 / Kimi 比例 / Top-16 | 严格 8/16；KV复制 8/16/32 | 8/16/32 | 无静态形状约束；取决于 batch / SLO | PP8 95.5%（4×11 + 4×10层，不等层）；PP16 87.5%（4×6 + 12×5层，不等层） | 1M；CP/SP 8/16/32 | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
-| K2 / Kimi 比例 / 自由 Top-N | 严格 8/16；KV复制 8/16/32 | 8/16/32 | 无静态形状约束；取决于 batch / SLO | PP8 92.9%（4×7 + 4×6层，不等层）；PP16 81.2%（4×4 + 12×3层，不等层） | 1M；CP/SP 8/16/32 | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
+| ID / 模型 | Attention TP | MoE EP（均匀放置） | DP / 请求并行 | PP decode 层计数代理 | 实证 / 边界 |
+|---|---|---:|---|---|---|
+| O0 / GPT-OSS-120B | 严格 8；KV复制 8/16/32 | 8/16/32/64 | 无静态形状约束；取决于 batch / SLO | PP8 90.0%（4×5 + 4×4层，不等层）；PP16 75.0%（4×3 + 12×2层，不等层） | 静态算术筛选；仍需 serving kernel 与通信实测 |
+| D0 / DeepSeek-V4-Pro | V3 实证 TP4+SP；V4 需 CSA/HCA 专用切分 | 8/16/32/64 | V3：prefill DP8；decode DP80 | PP8 95.3%（5×8 + 3×7层，不等层）；PP16 95.3%（13×4 + 3×3层，不等层） | V3 官方线上以 TP/SP+DP attention、EP MoE 为主，未采用训练 PP 拓扑 |
+| K0 / Kimi-K3 | 维度 8/16/32；KDA/MLA 需专用 kernel | 8/16/32/64 | 无静态形状约束；取决于 batch / SLO | PP8 96.9%（5×12 + 3×11层，不等层）；PP16 96.9%（13×6 + 3×5层，不等层） | 配置整除不等于 KDA/LatentMoE 的实际可用拓扑 |
+| L1 / DSV4 Top-6 / 64层硬件基线 | 严格 8/16；KV复制 8/16/32 | 8/16 | 无静态形状约束；取决于 batch / SLO | PP8 100.0%（8×8层，等层）；PP16 100.0%（16×4层，等层） | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
+| G1 / GPT-OSS 比例 / 原生 Top-4 | 严格 8/16/32；KV复制 8/16/32 | 8/16/32/64 | 无静态形状约束；取决于 batch / SLO | PP8 91.1%（3×7 + 5×6层，不等层）；PP16 79.7%（3×4 + 13×3层，不等层） | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
+| G2 / GPT-OSS 比例 / 并行拓扑优先 | 严格 8/16/32；KV复制 8/16/32 | 8/16/32/64 | 无静态形状约束；取决于 batch / SLO | PP8 100.0%（8×6层，等层）；PP16 100.0%（16×3层，等层） | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
+| D1 / DeepSeek 比例 / Top-6 | 严格 8；KV复制 8/16/32 | 8/16/32/64 | 无静态形状约束；取决于 batch / SLO | PP8 100.0%（8×7层，等层）；PP16 87.5%（8×4 + 8×3层，不等层） | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
+| D2 / DeepSeek 比例 / 自由 Top-N | 严格 8/16；KV复制 8/16/32 | 8/16/32/64 | 无静态形状约束；取决于 batch / SLO | PP8 100.0%（8×11层，等层）；PP16 91.7%（8×6 + 8×5层，不等层） | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
+| K1 / Kimi 比例 / Top-16 | 严格 8/16；KV复制 8/16/32 | 8/16/32 | 无静态形状约束；取决于 batch / SLO | PP8 95.5%（4×11 + 4×10层，不等层）；PP16 87.5%（4×6 + 12×5层，不等层） | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
+| K2 / Kimi 比例 / 自由 Top-N | 严格 8/16；KV复制 8/16/32 | 8/16/32 | 无静态形状约束；取决于 batch / SLO | PP8 92.9%（4×7 + 4×6层，不等层）；PP16 81.2%（4×4 + 12×3层，不等层） | GPT-OSS 形状代理；PP 对吞吐可行但会增加 decode stage 延迟 |
 
 - [DeepSeek-V3 官方线上推理](https://arxiv.org/html/2412.19437)的 attention 使用 TP4+SP，并按 prefill/decode 分别组合 DP；MoE 使用大规模 EP。V4 推理框架大体继承 V3，但 CSA/HCA 改变了 KV 与 kernel 边界。
 - 推理 PP 同样允许不等长 stage；是否值得使用取决于最慢 stage、micro-batch/concurrency、跨 stage 激活通信和逐 token 延迟，而不是层数取模。
 - EP 列只表示无复制时专家可均匀放置。线上系统可以复制热点/共享专家，所以专家数整除也不是绝对可行性条件。
-- 所有 L/G/D/K 候选把 1,048,576 token 作为能力设计目标；CP/SP 列只检查序列长度整除，真实支持仍取决于位置编码训练与 Sliding/Full attention kernel。
+- 上下文长度现阶段仅作为候选配置字段记录，不纳入本表的并行亲和性判断。
 
 ## GPT-OSS 形状候选的估算误差
 
