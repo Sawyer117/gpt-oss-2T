@@ -75,6 +75,21 @@
       "assessment": "保留 128 专家与 top-4；牺牲约 1.6% 激活目标精度，换取 TP32、EP64、PP16 的严格整除。"
     },
     {
+      "id": "G3",
+      "name": "GPT-OSS 原生形状 / 只扩层反例",
+      "axis": "仅层数 36→622，其他保持 120B",
+      "target_family": "GPT-OSS-120B 深度单轴反例",
+      "target_active_parameters": 87306972767,
+      "num_hidden_layers": 622,
+      "hidden_size": 2880,
+      "expert_intermediate_size": 2880,
+      "num_routed_experts": 128,
+      "experts_per_token": 4,
+      "num_attention_heads": 64,
+      "num_key_value_heads": 8,
+      "assessment": "只把 120B 的 36 层增至 622 层即可达到约 2T，但顺序深度放大 17.28 倍；PP 能分摊存储和吞吐，不能消除每 token 穿过 622 个 block 的依赖链，因此仅作为深度单轴反例。"
+    },
+    {
       "id": "F1",
       "name": "GPT-OSS 族谱 / 20B→120B 线性外推",
       "axis": "沿 Δ层数=12、Δ专家=96 的配置直线外推",

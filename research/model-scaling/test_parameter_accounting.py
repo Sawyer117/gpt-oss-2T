@@ -141,6 +141,21 @@ class ParameterAccountingTests(unittest.TestCase):
         self.assertEqual(topology.total_parameters, 1_998_153_467_904)
         self.assertEqual(topology.active_parameters, 85_898_446_848)
 
+    def test_gpt_depth_only_counterexample_exact_ledger(self) -> None:
+        ledger = count_parameters(
+            GptOssShape(
+                num_hidden_layers=622,
+                hidden_size=2880,
+                expert_intermediate_size=2880,
+                num_routed_experts=128,
+                experts_per_token=4,
+                num_attention_heads=64,
+                num_key_value_heads=8,
+            )
+        )
+        self.assertEqual(ledger.total_parameters, 1_999_006_227_136)
+        self.assertEqual(ledger.active_parameters, 79_235_644_096)
+
     def test_deepseek_ratio_candidates_exact_ledger(self) -> None:
         fixed = count_parameters(
             GptOssShape(
