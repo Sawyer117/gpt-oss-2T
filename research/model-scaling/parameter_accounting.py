@@ -24,7 +24,7 @@ class GptOssShape:
     num_key_value_heads: int
     vocab_size: int = 201088
     head_dim: int = 64
-    context_length: int = 400000
+    context_length: int = 1048576
 
     def validate(self) -> None:
         positive = (
@@ -108,7 +108,7 @@ def shape_from_mapping(mapping: dict, defaults: dict | None = None) -> GptOssSha
         num_key_value_heads=merged["num_key_value_heads"],
         vocab_size=merged.get("vocab_size", 201088),
         head_dim=merged.get("head_dim", 64),
-        context_length=merged.get("context_length", 400000),
+        context_length=merged.get("context_length", 1048576),
     )
 
 
@@ -301,7 +301,7 @@ def parse_args() -> argparse.Namespace:
     count.add_argument("--kv-heads", type=int, required=True)
     count.add_argument("--vocab-size", type=int, default=201088)
     count.add_argument("--head-dim", type=int, default=64)
-    count.add_argument("--context-length", type=int, default=400000)
+    count.add_argument("--context-length", type=int, default=1048576)
     count.add_argument("--json", action="store_true")
 
     solve = subparsers.add_parser("solve", help="search aligned near-2T shapes")

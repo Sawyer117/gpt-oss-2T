@@ -25,6 +25,8 @@ END_WIDE_MARKER = "<!-- END GENERATED 11-COLUMN TABLE -->"
 
 
 def human_context(value: int) -> str:
+    if value == 1_048_576:
+        return "1M"
     if value >= 1_000_000:
         return f"{value / 1_000_000:.3g}M"
     return f"{value / 1_000:.0f}K"
@@ -381,7 +383,7 @@ def render_inference_affinity_table(rows: list[tuple[str, str, dict]]) -> str:
             "- [DeepSeek-V3 官方线上推理](https://arxiv.org/html/2412.19437)的 attention 使用 TP4+SP，并按 prefill/decode 分别组合 DP；MoE 使用大规模 EP。V4 推理框架大体继承 V3，但 CSA/HCA 改变了 KV 与 kernel 边界。",
             "- 推理 PP 同样允许不等长 stage；是否值得使用取决于最慢 stage、micro-batch/concurrency、跨 stage 激活通信和逐 token 延迟，而不是层数取模。",
             "- EP 列只表示无复制时专家可均匀放置。线上系统可以复制热点/共享专家，所以专家数整除也不是绝对可行性条件。",
-            "- CP/SP 对 400K/1M 上下文很重要；表中对 GPT-OSS 形状只检查序列长度整除，真实可用性仍取决于 Sliding/Full attention kernel。",
+            "- 所有 L/G/D/K 候选把 1,048,576 token 作为能力设计目标；CP/SP 列只检查序列长度整除，真实支持仍取决于位置编码训练与 Sliding/Full attention kernel。",
         ]
     )
     return "\n".join(lines)
