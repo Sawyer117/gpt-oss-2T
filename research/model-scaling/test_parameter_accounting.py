@@ -16,7 +16,7 @@ from estimate_candidates import pp_layer_balance
 
 
 class ParameterAccountingTests(unittest.TestCase):
-    def test_scaled_shape_defaults_to_1m_context(self) -> None:
+    def test_scaled_shape_defaults_to_figure_11_context(self) -> None:
         shape = GptOssShape(
             num_hidden_layers=48,
             hidden_size=8192,
@@ -26,7 +26,7 @@ class ParameterAccountingTests(unittest.TestCase):
             num_attention_heads=128,
             num_key_value_heads=16,
         )
-        self.assertEqual(shape.context_length, 1_048_576)
+        self.assertEqual(shape.context_length, 400_000)
 
     def test_pp_layer_balance_does_not_require_divisible_layers(self) -> None:
         utilization, allocation = pp_layer_balance(61, 16)

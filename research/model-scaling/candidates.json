@@ -10,7 +10,7 @@
   "defaults": {
     "vocab_size": 201088,
     "head_dim": 64,
-    "context_length": 1048576
+    "context_length": 400000
   },
   "candidates": [
     {
